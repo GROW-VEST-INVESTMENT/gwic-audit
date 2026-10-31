@@ -2,9 +2,15 @@
 import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import {
   Activity,
+  ArrowRight,
   ArrowUpRight,
+  Check,
+  Eye,
+  EyeOff,
   LayoutDashboard,
+  Lock,
   LogOut,
+  Mail,
   Settings2,
   ShieldCheck,
   Ticket,
@@ -59,6 +65,14 @@ const getPriorityTone = (priority) => {
   if (normalized.includes('low')) return 'low';
   return 'medium';
 };
+
+const BrandMark = ({ className = 'brand-mark' }) => (
+  <svg className={className} viewBox="0 0 56 56" aria-hidden="true">
+    <path d="M7 42V24l12-12 7 8L40 7l9 2-2 10-15 15-8-7-9 9v6H7Z" fill="currentColor" />
+    <path d="M13 45h7V32l-7 7v6Zm12 0h7V27l-7 7v11Zm12 0h7V20l-7 7v18Z" fill="currentColor" />
+    <path d="m30 17 7-7 6 6-7 7-6-6Z" fill="#a8ed43" />
+  </svg>
+);
 
 const getUserFromStorage = () => {
   try {
@@ -178,6 +192,7 @@ function LoginPage({ onLogin }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -223,33 +238,88 @@ function LoginPage({ onLogin }) {
 
   return (
     <div className="login-screen">
-      <div className="login-card">
-        <div className="login-header">
-          <span className="brand-mark large">G</span>
-          <div>
-            <p className="eyebrow">GWIC operations</p>
-            <h1>Admin access</h1>
+      <div className="login-device">
+        <div className="login-hero">
+          <div className="status-row">
+            <span className="time-mark">20:38</span>
+            <div className="status-icons">
+              <span className="signal-dot" />
+              <span className="signal-dot" />
+              <span className="signal-dot" />
+              <span className="battery" />
+            </div>
+          </div>
+
+          <div className="hero-brand-row">
+            <BrandMark className="brand-svg giant" />
+            <div className="hero-wordmark-wrap">
+              <div className="hero-wordmark">GWIC</div>
+              <div className="hero-subtitle">GROW WITH CORE</div>
+            </div>
+            <div className="chart-bars" aria-hidden="true">
+              <span /><span /><span /><span /><span /><span /><span /><span />
+            </div>
+          </div>
+
+          <div className="section-divider" />
+          <div className="hero-panel-title">ADMIN PANEL</div>
+        </div>
+
+        <div className="login-card">
+          <div className="login-shield">
+            <ShieldCheck size={36} />
+          </div>
+
+          <h1>Admin Access</h1>
+          <p className="login-subtitle">Sign in to manage GWIC operations and monitor platform activities.</p>
+
+          <form className="login-form" onSubmit={handleSubmit}>
+            <label className="field-wrap">
+              <span className="field-label">
+                <Mail size={18} />
+                <strong>Email</strong>
+              </span>
+              <div className="input-shell">
+                <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Enter your email address" required />
+              </div>
+            </label>
+
+            <label className="field-wrap">
+              <span className="field-label">
+                <Lock size={18} />
+                <strong>Password</strong>
+              </span>
+              <div className="input-shell password-shell">
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required />
+                <button type="button" className="password-toggle" onClick={() => setShowPassword((value) => !value)} aria-label="Toggle password visibility">
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </label>
+
+            {error ? <p className="error-banner">{error}</p> : null}
+
+            <button type="submit" className="primary-button login-submit" disabled={pending}>
+              <ArrowRight size={20} />
+              <span>{pending ? 'Signing in...' : 'Login'}</span>
+            </button>
+          </form>
+
+          <div className="secure-row">
+            <span className="secure-check"><Check size={14} /></span>
+            <span>Secure Access</span>
+          </div>
+
+          <div className="info-note">
+            <span className="info-icon">i</span>
+            <p>Use a real GWIC admin account from the shared backend database.</p>
           </div>
         </div>
 
-        <form className="login-form" onSubmit={handleSubmit}>
-          <label>
-            <span>Email</span>
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-          </label>
-          <label>
-            <span>Password</span>
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-          </label>
-
-          {error ? <p className="error-banner">{error}</p> : null}
-
-          <button type="submit" className="primary-button full-width" disabled={pending}>
-            {pending ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
-
-        <p className="demo-note">Use a real GWIC admin account from the shared backend database.</p>
+        <footer className="login-footer">
+          <span>GWIC — Admin Panel</span>
+          <span>Manage • Monitor • Grow</span>
+        </footer>
       </div>
     </div>
   );
