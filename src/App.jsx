@@ -67,10 +67,10 @@ const getPriorityTone = (priority) => {
 };
 
 const BrandMark = ({ className = 'brand-mark' }) => (
-  <svg className={className} viewBox="0 0 56 56" aria-hidden="true">
-    <path d="M7 42V24l12-12 7 8L40 7l9 2-2 10-15 15-8-7-9 9v6H7Z" fill="currentColor" />
-    <path d="M13 45h7V32l-7 7v6Zm12 0h7V27l-7 7v11Zm12 0h7V20l-7 7v18Z" fill="currentColor" />
-    <path d="m30 17 7-7 6 6-7 7-6-6Z" fill="#a8ed43" />
+  <svg className={className} viewBox="0 0 96 96" aria-hidden="true">
+    <path d="M15 58.5 38 42.5 51 52.5 70 28.5 82 25.5 78 38.5 59 64.5 46 53 29 68.5Z" fill="currentColor" opacity="0.96" />
+    <path d="M12 63.5 25 60.5l17-14 26-19" fill="none" stroke="#baf7a3" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="71.5" cy="28.5" r="6.5" fill="#baf7a3" />
   </svg>
 );
 
@@ -240,16 +240,6 @@ function LoginPage({ onLogin }) {
     <div className="login-screen">
       <div className="login-device">
         <div className="login-hero">
-          <div className="status-row login-status-row">
-            <span className="whatsapp-row">
-              <span className="whatsapp-indicator" aria-hidden="true">◢</span>
-              <span>WhatsApp</span>
-            </span>
-            <div className="status-icons" aria-hidden="true">
-              <span className="signal-bars"><i /><i /><i /></span>
-            </div>
-          </div>
-
           <div className="hero-brand-row">
             <BrandMark className="brand-svg giant" />
             <div className="hero-wordmark-wrap">
