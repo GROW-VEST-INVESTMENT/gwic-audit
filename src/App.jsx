@@ -240,13 +240,13 @@ function LoginPage({ onLogin }) {
     <div className="login-screen">
       <div className="login-device">
         <div className="login-hero">
-          <div className="status-row">
-            <span className="time-mark">20:38</span>
-            <div className="status-icons">
-              <span className="signal-dot" />
-              <span className="signal-dot" />
-              <span className="signal-dot" />
-              <span className="battery" />
+          <div className="status-row login-status-row">
+            <span className="whatsapp-row">
+              <span className="whatsapp-indicator" aria-hidden="true">◢</span>
+              <span>WhatsApp</span>
+            </span>
+            <div className="status-icons" aria-hidden="true">
+              <span className="signal-bars"><i /><i /><i /></span>
             </div>
           </div>
 

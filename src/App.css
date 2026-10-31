@@ -679,15 +679,15 @@ td {
 
 .login-device {
   width: min(100%, 430px);
-  background: #e9f5ee;
+  background: #e7f5ee;
   border-radius: 28px 28px 22px 22px;
   overflow: hidden;
-  box-shadow: 0 26px 60px rgba(9, 39, 31, 0.14);
+  box-shadow: 0 24px 50px rgba(10, 50, 39, 0.14);
   border: 1px solid rgba(12, 93, 69, 0.1);
 }
 
 .login-hero {
-  background: linear-gradient(180deg, #0f6255 0%, #0a4d42 100%);
+  background: linear-gradient(180deg, #0f6255 0%, #0c5649 100%);
   position: relative;
   padding: 18px 22px 12px;
   color: #f0faf4;
@@ -703,68 +703,67 @@ td {
 }
 
 .login-hero::before {
-  width: 540px;
-  height: 540px;
-  left: -110px;
-  bottom: -306px;
+  width: 520px;
+  height: 520px;
+  left: -105px;
+  bottom: -285px;
 }
 
 .login-hero::after {
-  width: 580px;
-  height: 580px;
-  right: -180px;
-  bottom: -336px;
+  width: 560px;
+  height: 560px;
+  right: -155px;
+  bottom: -330px;
 }
 
-.status-row {
+.login-status-row {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
   margin-bottom: 8px;
+  color: rgba(248, 252, 249, 0.92);
+  padding-top: 2px;
 }
 
-.time-mark {
-  font-size: 1.05rem;
+.whatsapp-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.whatsapp-indicator {
+  display: inline-block;
+  font-size: 0.8rem;
+  transform: rotate(-45deg) translateY(-1px);
 }
 
 .status-icons {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
-.signal-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  display: inline-block;
+.signal-bars {
+  display: inline-flex;
+  align-items: end;
+  gap: 2px;
+  height: 13px;
 }
 
-.battery {
-  width: 20px;
-  height: 10px;
-  border-radius: 3px;
-  border: 1.5px solid rgba(255, 255, 255, 0.9);
-  position: relative;
-  display: inline-block;
-}
-
-.battery::after {
-  content: "";
-  position: absolute;
-  right: -4px;
-  top: 2px;
-  width: 2px;
-  height: 4px;
+.signal-bars i {
+  display: block;
+  width: 3px;
+  border-radius: 2px;
   background: rgba(255, 255, 255, 0.9);
-  border-radius: 1px;
 }
+
+.signal-bars i:nth-child(1) { height: 5px; }
+.signal-bars i:nth-child(2) { height: 8px; }
+.signal-bars i:nth-child(3) { height: 11px; }
 
 .hero-brand-row {
   position: relative;
@@ -785,9 +784,9 @@ td {
 }
 
 .brand-svg.giant {
-  width: 74px;
-  height: 74px;
-  color: #ebfff3;
+  width: 72px;
+  height: 72px;
+  color: #eefff6;
   filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.08));
 }
 
@@ -854,7 +853,7 @@ td {
   position: relative;
   z-index: 1;
   text-align: center;
-  letter-spacing: 0.26em;
+  letter-spacing: 0.25em;
   font-size: 0.8rem;
   color: rgba(239, 250, 243, 0.9);
   font-weight: 700;
@@ -864,10 +863,10 @@ td {
 .login-card {
   position: relative;
   margin: -10px 16px 0;
-  background: rgba(245, 251, 247, 0.94);
-  border-radius: 28px 28px 22px 22px;
-  padding: 26px 24px 18px;
-  box-shadow: 0 18px 28px rgba(18, 43, 35, 0.08);
+  background: rgba(245, 250, 247, 0.96);
+  border-radius: 30px 30px 24px 24px;
+  padding: 28px 24px 18px;
+  box-shadow: 0 18px 30px rgba(18, 43, 35, 0.08);
   border: 1px solid rgba(14, 82, 63, 0.06);
 }
 
@@ -886,16 +885,16 @@ td {
 .login-card h1 {
   margin: 0;
   text-align: center;
-  font-size: clamp(2.7rem, 7vw, 4.2rem);
+  font-size: clamp(3rem, 7vw, 4.3rem);
   line-height: 1.02;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.065em;
   color: #0b3d33;
   font-weight: 800;
 }
 
 .login-subtitle {
-  margin: 10px auto 22px;
-  max-width: 340px;
+  margin: 12px auto 22px;
+  max-width: 360px;
   text-align: center;
   color: #3d5b51;
   font-size: 1.08rem;
@@ -931,7 +930,7 @@ td {
   display: flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.38);
-  border: 1px solid rgba(18, 102, 77, 0.13);
+  border: 1px solid rgba(18, 102, 77, 0.12);
   border-radius: 16px;
   padding: 0 14px;
   min-height: 58px;
@@ -1072,6 +1071,86 @@ td {
 
 .full-width {
   width: 100%;
+}
+
+@media (min-width: 768px) {
+  .login-screen {
+    padding: 36px 24px;
+  }
+
+  .login-device {
+    width: min(100%, 980px);
+  }
+
+  .login-hero {
+    padding: 22px 32px 18px;
+  }
+
+  .hero-brand-row {
+    margin-top: 14px;
+  }
+
+  .brand-svg.giant {
+    width: 110px;
+    height: 110px;
+  }
+
+  .hero-wordmark {
+    font-size: clamp(5rem, 5vw, 7rem);
+  }
+
+  .hero-subtitle {
+    font-size: 0.9rem;
+    letter-spacing: 0.38em;
+  }
+
+  .hero-panel-title {
+    font-size: 0.9rem;
+    letter-spacing: 0.32em;
+  }
+
+  .login-card {
+    margin: -12px 22px 0;
+    padding: 34px 42px 26px;
+  }
+
+  .login-card h1 {
+    font-size: clamp(4rem, 3.9vw, 6rem);
+  }
+
+  .login-subtitle {
+    max-width: 620px;
+    font-size: 1.3rem;
+  }
+
+  .login-form {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .field-label {
+    font-size: 1.38rem;
+  }
+
+  .input-shell {
+    min-height: 66px;
+  }
+
+  .login-submit {
+    min-height: 64px;
+    font-size: 1.3rem;
+  }
+
+  .secure-row {
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .login-footer {
+    padding-left: 26px;
+    padding-right: 26px;
+  }
 }
 
 @media (max-width: 480px) {
