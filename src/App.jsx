@@ -19,8 +19,16 @@ import {
 } from 'lucide-react';
 import './App.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
 const ADMIN_ROLES = new Set(['admin', 'super_admin']);
+
+const safeJson = async (response) => {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
 
 const formatCurrency = (value) => {
   if (typeof value === 'number') {
@@ -67,11 +75,13 @@ const getPriorityTone = (priority) => {
 };
 
 const BrandMark = ({ className = 'brand-mark' }) => (
-  <svg className={className} viewBox="0 0 96 96" aria-hidden="true">
-    <path d="M15 58.5 38 42.5 51 52.5 70 28.5 82 25.5 78 38.5 59 64.5 46 53 29 68.5Z" fill="currentColor" opacity="0.96" />
-    <path d="M12 63.5 25 60.5l17-14 26-19" fill="none" stroke="#baf7a3" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-    <circle cx="71.5" cy="28.5" r="6.5" fill="#baf7a3" />
-  </svg>
+  <img
+    src="/gwic-logo.png"
+    alt="GWIC logo"
+    className={className}
+    loading="eager"
+    decoding="async"
+  />
 );
 
 const getUserFromStorage = () => {
@@ -87,6 +97,7 @@ const fetchAdminData = async (endpoint) => {
   const response = await fetch(`${API_BASE}/api/admin/${endpoint}`, {
     credentials: 'include',
     headers: { Accept: 'application/json' },
+    cache: 'no-store',
   });
 
   if (response.status === 401) {
@@ -95,11 +106,11 @@ const fetchAdminData = async (endpoint) => {
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unable to load admin data.' }));
+    const error = await safeJson(response) ?? { message: 'Unable to load admin data.' };
     throw new Error(error.message || 'Unable to load admin data.');
   }
 
-  return response.json();
+  return (await safeJson(response)) ?? {};
 };
 
 const loadCurrentAdminSession = async () => {
@@ -107,13 +118,14 @@ const loadCurrentAdminSession = async () => {
     const response = await fetch(`${API_BASE}/api/auth/me`, {
       credentials: 'include',
       headers: { Accept: 'application/json' },
+      cache: 'no-store',
     });
 
-    if (!response.ok) {
+    if (response.status === 401 || !response.ok) {
       return null;
     }
 
-    const payload = await response.json();
+    const payload = await safeJson(response);
     const user = payload?.user;
     if (!user || !ADMIN_ROLES.has(user.role)) {
       return null;
@@ -125,7 +137,8 @@ const loadCurrentAdminSession = async () => {
       email: user.email,
       role: user.role,
     };
-  } catch {
+  } catch (error) {
+    console.warn('Failed to fetch admin session:', error);
     return null;
   }
 };
