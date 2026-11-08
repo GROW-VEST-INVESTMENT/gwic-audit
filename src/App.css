@@ -2281,3 +2281,367 @@ td {
     transition-duration: 0.01ms !important;
   }
 }
+
+.user-name-link {
+  color: #15583b;
+  font-weight: 700;
+  text-decoration-color: rgba(181, 150, 85, 0.55);
+  text-underline-offset: 3px;
+}
+
+.user-name-link:hover {
+  color: #96743a;
+}
+
+.user-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.user-back-link {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  color: #6b756d;
+  font-size: 0.84rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.user-back-link:hover {
+  color: #926f2d;
+}
+
+.user-profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 24px;
+  border: 1px solid rgba(181, 150, 85, 0.27);
+  border-radius: 15px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(223, 201, 145, 0.15), transparent 25rem),
+    #fffefa;
+  box-shadow: 0 8px 26px rgba(35, 42, 33, 0.04);
+}
+
+.user-profile-avatar {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  place-items: center;
+  border: 1px solid rgba(181, 150, 85, 0.35);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f1e8d0, #e1d0a6);
+  color: #174b35;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.65rem;
+}
+
+.user-profile-heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.user-profile-heading .welcome-kicker {
+  margin-bottom: 4px;
+}
+
+.user-profile-heading h2 {
+  margin: 0;
+  color: #173d2e;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.user-profile-heading p {
+  margin: 4px 0 0;
+  color: #6c786f;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.user-profile-status {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.user-detail-metric {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  padding: 17px 19px;
+  border: 1px solid rgba(75, 58, 28, 0.12);
+  border-radius: 13px;
+  background: #fffefa;
+  box-shadow: 0 8px 26px rgba(35, 42, 33, 0.035);
+}
+
+.user-detail-metric > span,
+.user-detail-metric small {
+  color: #738078;
+  font-size: 0.76rem;
+}
+
+.user-detail-metric strong {
+  color: #143d2e;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.user-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.user-detail-panel {
+  min-width: 0;
+  height: 100%;
+}
+
+.user-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 22px;
+  margin: 0;
+}
+
+.user-facts > div {
+  min-width: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(75, 58, 28, 0.09);
+}
+
+.user-facts dt {
+  margin-bottom: 5px;
+  color: #7a8379;
+  font-size: 0.72rem;
+}
+
+.user-facts dd {
+  margin: 0;
+  color: #294438;
+  font-size: 0.86rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.user-reference {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.73rem !important;
+}
+
+.detail-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0 15px;
+  color: #354d40;
+  font-size: 0.84rem;
+}
+
+.user-detail-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(75, 58, 28, 0.1);
+  border-radius: 11px;
+  background: #faf8f1;
+  color: #758077;
+  font-size: 0.77rem;
+}
+
+.user-detail-note strong {
+  color: #34493b;
+  font-size: 0.84rem;
+}
+
+.user-detail-action {
+  display: inline-flex;
+  margin-top: 12px;
+  color: #8b6a2c;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.user-detail-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-detail-list-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(75, 58, 28, 0.09);
+}
+
+.user-detail-list-row:last-child {
+  border-bottom: 0;
+}
+
+.user-detail-list-row > div:first-child,
+.user-plan-values {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.user-detail-list-row strong {
+  color: #30483a;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.user-detail-list-row span {
+  color: #7a8379;
+  font-size: 0.73rem;
+  overflow-wrap: anywhere;
+}
+
+.user-plan-values {
+  flex: 0 0 auto;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.user-plan-values strong {
+  color: #174b35;
+}
+
+.user-plan-values .status-text.success {
+  color: #0d6842;
+}
+
+.user-plan-values .status-text.warning {
+  color: #9c741e;
+}
+
+.user-plan-values .status-text.danger {
+  color: #ba4545;
+}
+
+.user-goal-track {
+  height: 5px;
+  margin-top: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eee9dc;
+}
+
+.user-goal-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b59655, #d6bd7f);
+}
+
+.user-detail-error {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .user-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .user-detail-page {
+    gap: 13px;
+  }
+
+  .user-profile-hero {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 17px;
+  }
+
+  .user-profile-avatar {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+    font-size: 1.35rem;
+  }
+
+  .user-profile-heading {
+    flex-basis: calc(100% - 64px);
+  }
+
+  .user-profile-status {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .user-detail-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .user-detail-metric {
+    gap: 5px;
+    padding: 12px 10px;
+  }
+
+  .user-detail-metric > span,
+  .user-detail-metric small {
+    font-size: 0.66rem;
+    line-height: 1.3;
+  }
+
+  .user-detail-metric strong {
+    font-size: clamp(0.9rem, 4vw, 1.25rem);
+  }
+
+  .user-facts {
+    gap: 0 14px;
+  }
+
+  .user-facts dd {
+    font-size: 0.8rem;
+  }
+
+  .user-detail-list-row {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .user-detail-list-row > .status-pill {
+    flex: 0 0 auto;
+  }
+
+  .user-detail-panel .panel-header {
+    flex-direction: row;
+  }
+}

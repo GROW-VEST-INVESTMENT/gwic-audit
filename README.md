@@ -22,7 +22,7 @@ The backend bootstraps the configured admin account when it starts. Rotate crede
 
 ## Operational behavior
 
-- Users, wallets, transactions, support, and verification requests are loaded from authenticated backend endpoints.
+- Users, wallets, transactions, support, and verification requests are loaded from authenticated backend endpoints. Select a user's name to open a read-only profile with their account details, wallet, recent transactions, verification history, support summaries, investment plans, and savings goals.
 - Wallets and transactions are read-only in this UI.
 - KYC decisions require staff to confirm that evidence was checked through the approved verification process, include a reviewer note, and are saved with an audit event. Identity evidence is not stored in this app.
 - Support status changes require a staff note and are saved with an audit event.

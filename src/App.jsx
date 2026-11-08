@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState } from 'react';
-import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useOutletContext } from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import {
   Activity,
+  ArrowLeft,
   ArrowRight,
   Check,
   ClipboardList,
@@ -208,6 +209,7 @@ function App() {
         >
           <Route index element={<DashboardPage />} />
           <Route path="users" element={<UsersPage />} />
+          <Route path="users/:userId" element={<UserDetailPage />} />
           <Route path="kyc" element={<KYCPage />} />
           <Route path="wallets" element={<WalletsPage />} />
           <Route path="transactions" element={<TransactionsPage />} />
@@ -371,7 +373,9 @@ function AdminLayout({ session, onLogout }) {
     { to: '/settings', label: 'Settings', icon: Settings2 },
   ];
 
-  const currentTitle = navItems.find((item) => item.to === location.pathname)?.label || 'Overview';
+  const currentTitle = location.pathname.startsWith('/users/')
+    ? 'User profile'
+    : navItems.find((item) => item.to === location.pathname)?.label || 'Overview';
 
   return (
     <div className="admin-app">
@@ -690,7 +694,7 @@ function UsersPage() {
             <tbody>
               {visibleUsers.map((row) => (
                 <tr key={row.id}>
-                  <td data-label="Name">{row.name}</td>
+                  <td data-label="Name"><Link className="user-name-link" to={`/users/${encodeURIComponent(row.id)}`}>{row.name}</Link></td>
                   <td data-label="Email">{row.email}</td>
                   <td data-label="Role">{normalizeRole(row.role)}</td>
                   <td data-label="Account"><span className={`status-pill ${getStatusTone(row.status)}`}>{row.status || 'Active'}</span></td>
@@ -702,6 +706,182 @@ function UsersPage() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function UserDetailPage() {
+  const { userId } = useParams();
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    fetchAdminData(`users/${encodeURIComponent(userId)}`)
+      .then((payload) => {
+        if (active) {
+          setDetail(payload);
+          setError('');
+        }
+      })
+      .catch((fetchError) => {
+        if (active) setError(fetchError.message || 'Unable to load this user profile.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  if (loading) return <div className="state-box">Loading user profile…</div>;
+  if (error) {
+    return (
+      <section className="panel user-detail-error">
+        <p className="error-banner" role="alert">{error}</p>
+        <Link to="/users" className="secondary-button"><ArrowLeft size={16} /> Back to users</Link>
+      </section>
+    );
+  }
+
+  const { user, wallet, transactions = [], verificationRequests = [], supportRequests = [], investmentPlans = [], savingsGoals = [] } = detail;
+  const latestVerification = verificationRequests[0];
+
+  return (
+    <div className="user-detail-page">
+      <Link to="/users" className="user-back-link"><ArrowLeft size={16} /> All users</Link>
+
+      <section className="user-profile-hero">
+        <div className="user-profile-avatar">{user.name?.trim().charAt(0)?.toUpperCase() || 'U'}</div>
+        <div className="user-profile-heading">
+          <span className="welcome-kicker">CUSTOMER PROFILE</span>
+          <h2>{user.name}</h2>
+          <p>{user.email}</p>
+        </div>
+        <div className="user-profile-status">
+          <span className={`status-pill ${getStatusTone(user.status)}`}>{normalizeRole(user.status)}</span>
+          <span className={`status-pill ${user.kycVerified ? 'success' : 'warning'}`}>{user.kycVerified ? 'KYC verified' : 'KYC not verified'}</span>
+        </div>
+      </section>
+
+      <section className="user-detail-metrics">
+        <article className="user-detail-metric">
+          <span>Wallet balance</span>
+          <strong>{formatCurrency(wallet?.balance || 0)}</strong>
+          <small>{wallet ? `Updated ${formatDate(wallet.updatedAt)}` : 'No wallet record'}</small>
+        </article>
+        <article className="user-detail-metric">
+          <span>Investment plans</span>
+          <strong>{investmentPlans.length}</strong>
+          <small>{investmentPlans.filter((plan) => plan.status === 'ACTIVE').length} active</small>
+        </article>
+        <article className="user-detail-metric">
+          <span>Support requests</span>
+          <strong>{supportRequests.length}</strong>
+          <small>{supportRequests.filter((request) => request.status !== 'resolved').length} open or in progress</small>
+        </article>
+      </section>
+
+      <section className="user-detail-grid">
+        <article className="panel user-detail-panel">
+          <div className="panel-header"><div><h3>Account information</h3><p className="section-note">Read-only profile details</p></div></div>
+          <dl className="user-facts">
+            <div><dt>Email</dt><dd>{user.email}</dd></div>
+            <div><dt>Phone</dt><dd>{user.phone || 'Not provided'}</dd></div>
+            <div><dt>Account status</dt><dd>{normalizeRole(user.status)}</dd></div>
+            <div><dt>Access role</dt><dd>{normalizeRole(user.role)}</dd></div>
+            <div><dt>Product</dt><dd>{normalizeRole(user.product)}</dd></div>
+            <div><dt>Primary goal</dt><dd>{user.goal || 'Not provided'}</dd></div>
+            <div><dt>Joined</dt><dd>{formatDate(user.createdAt)}</dd></div>
+            <div><dt>User reference</dt><dd className="user-reference">{user.id}</dd></div>
+          </dl>
+        </article>
+
+        <article className="panel user-detail-panel">
+          <div className="panel-header"><div><h3>Verification</h3><p className="section-note">Current status and recent review history</p></div></div>
+          <div className="detail-status-row">
+            <span>Account verification</span>
+            <span className={`status-pill ${user.kycVerified ? 'success' : 'warning'}`}>{user.kycVerified ? 'Verified' : 'Not verified'}</span>
+          </div>
+          {latestVerification ? (
+            <div className="user-detail-note">
+              <strong>Latest request · {normalizeRole(latestVerification.status)}</strong>
+              <span>Submitted {formatDate(latestVerification.createdAt)}</span>
+              {latestVerification.reviewedAt ? <span>Reviewed {formatDate(latestVerification.reviewedAt)}</span> : null}
+            </div>
+          ) : <div className="empty-state">No verification request has been submitted.</div>}
+          {latestVerification?.status === 'pending' ? <Link to="/kyc" className="user-detail-action">Open KYC queue</Link> : null}
+        </article>
+
+        <article className="panel user-detail-panel">
+          <div className="panel-header"><div><h3>Investment plans</h3><p className="section-note">Plan status and balances</p></div></div>
+          {investmentPlans.length ? (
+            <div className="user-detail-list">
+              {investmentPlans.map((plan, index) => (
+                <div className="user-detail-list-row" key={`${plan.productType}-${plan.startDate || index}`}>
+                  <div><strong>{normalizeRole(plan.productType)}</strong><span>{formatDate(plan.startDate)} – {formatDate(plan.maturityDate)}</span></div>
+                  <div className="user-plan-values"><strong>{formatCurrency(plan.principal)}</strong><span>{normalizeRole(plan.status)}</span></div>
+                </div>
+              ))}
+            </div>
+          ) : <div className="empty-state">No investment plans found.</div>}
+        </article>
+
+        <article className="panel user-detail-panel">
+          <div className="panel-header"><div><h3>Savings goals</h3><p className="section-note">Customer-created planning goals</p></div></div>
+          {savingsGoals.length ? (
+            <div className="user-detail-list">
+              {savingsGoals.map((goal, index) => {
+                const progress = goal.targetAmount > 0 ? Math.min(100, Math.round((goal.savedAmount / goal.targetAmount) * 100)) : 0;
+                return (
+                  <div className="user-goal-row" key={`${goal.name}-${index}`}>
+                    <div className="user-detail-list-row">
+                      <div><strong>{goal.name}</strong><span>{goal.targetDate ? `Target ${formatDate(goal.targetDate)}` : 'No target date'}</span></div>
+                      <div className="user-plan-values"><strong>{formatCurrency(goal.savedAmount)}</strong><span>of {formatCurrency(goal.targetAmount)}</span></div>
+                    </div>
+                    <div className="user-goal-track"><span style={{ width: `${progress}%` }} /></div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : <div className="empty-state">No savings goals found.</div>}
+        </article>
+
+        <article className="panel user-detail-panel">
+          <div className="panel-header"><div><h3>Recent transactions</h3><p className="section-note">Latest 10 wallet movements</p></div></div>
+          {transactions.length ? (
+            <div className="user-detail-list">
+              {transactions.map((transaction) => (
+                <div className="user-detail-list-row" key={transaction.reference}>
+                  <div><strong>{normalizeRole(transaction.type)}</strong><span>{transaction.reference} · {formatDate(transaction.createdAt)}</span></div>
+                  <div className="user-plan-values"><strong>{formatCurrency(transaction.amount)}</strong><span className={`status-text ${getStatusTone(transaction.status)}`}>{normalizeRole(transaction.status)}</span></div>
+                </div>
+              ))}
+            </div>
+          ) : <div className="empty-state">No wallet transactions found.</div>}
+        </article>
+
+        <article className="panel user-detail-panel">
+          <div className="panel-header">
+            <div><h3>Support history</h3><p className="section-note">Latest 10 requests from this customer</p></div>
+            <Link to="/support" className="link-button">Open inbox</Link>
+          </div>
+          {supportRequests.length ? (
+            <div className="user-detail-list">
+              {supportRequests.map((request) => (
+                <div className="user-detail-list-row" key={request.reference}>
+                  <div><strong>{request.subject}</strong><span>{request.reference} · {normalizeRole(request.category)} · {formatDate(request.createdAt)}</span></div>
+                  <span className={`status-pill ${getStatusTone(request.status)}`}>{normalizeRole(request.status)}</span>
+                </div>
+              ))}
+            </div>
+          ) : <div className="empty-state">No support requests found.</div>}
+        </article>
+      </section>
     </div>
   );
 }
