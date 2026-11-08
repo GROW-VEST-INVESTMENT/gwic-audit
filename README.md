@@ -1,16 +1,29 @@
-# React + Vite
+# Kalma Capital Admin
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The admin app is a separate React/Vite deployment. It uses the shared backend session cookie and requires an `admin` or `super_admin` account; client-side role data is not used as authorization.
 
-Currently, two official plugins are available:
+## Local development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Start the backend with a configured MongoDB connection.
+2. Set `ADMIN_URL=http://localhost:5173` in the backend environment.
+3. Configure `ADMIN_EMAIL` and `ADMIN_PASSWORD` as backend-only secrets. Do not put credentials in this app's `.env`, source, or Git.
+4. Copy `.env.example` to `.env` and set `VITE_API_URL` to the backend origin.
+5. Run `npm ci`, then `npm run dev`.
 
-## React Compiler
+The backend bootstraps the configured admin account when it starts. Rotate credentials that have been shared in chat or otherwise exposed before using them.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Deployment
 
-## Expanding the Oxlint configuration
+- Deploy `admin/` as a separate hosting project with this directory as its root.
+- Set `VITE_API_URL` to the production backend origin in the admin hosting project.
+- Set `ADMIN_URL` to the exact production admin origin in the backend deployment. Add other required browser origins to `CORS_ORIGINS` only when necessary.
+- Configure admin email and password only in the backend deployment's secret environment settings.
+- Use HTTPS for both apps so the backend's HttpOnly session cookie can be used securely.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Operational behavior
+
+- Users, wallets, transactions, support, and verification requests are loaded from authenticated backend endpoints.
+- Wallets and transactions are read-only in this UI.
+- KYC decisions require staff to confirm that evidence was checked through the approved verification process, include a reviewer note, and are saved with an audit event. Identity evidence is not stored in this app.
+- Support status changes require a staff note and are saved with an audit event.
+- The activity log shows recent staff actions. Settings that are not backed by a real backend feature are not presented as configurable controls.

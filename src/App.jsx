@@ -1,10 +1,11 @@
 ﻿import { useEffect, useState } from 'react';
-import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useOutletContext } from 'react-router-dom';
 import {
   Activity,
   ArrowRight,
   ArrowUpRight,
   Check,
+  ClipboardList,
   Eye,
   EyeOff,
   LayoutDashboard,
@@ -44,11 +45,26 @@ const formatCurrency = (value) => {
 
 const formatDate = (value) => {
   if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
   return new Intl.DateTimeFormat('en-NG', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(value));
+  }).format(date);
+};
+
+const formatDateTime = (value) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-NG', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 };
 
 const normalizeRole = (value) => {
@@ -61,17 +77,10 @@ const normalizeRole = (value) => {
 const getStatusTone = (status) => {
   if (!status) return 'neutral';
   const normalized = String(status).toLowerCase();
-  if (['verified', 'success', 'active', 'completed', 'approved'].includes(normalized)) return 'success';
+  if (['verified', 'success', 'successful', 'active', 'completed', 'approved', 'resolved'].includes(normalized)) return 'success';
   if (['pending', 'in_progress', 'processing', 'warning'].includes(normalized)) return 'warning';
   if (['suspended', 'blocked', 'rejected', 'failed', 'danger'].includes(normalized)) return 'danger';
   return 'neutral';
-};
-
-const getPriorityTone = (priority) => {
-  const normalized = String(priority || 'medium').toLowerCase();
-  if (normalized.includes('high')) return 'high';
-  if (normalized.includes('low')) return 'low';
-  return 'medium';
 };
 
 const BrandMark = ({ className = 'brand-mark' }) => (
@@ -84,33 +93,29 @@ const BrandMark = ({ className = 'brand-mark' }) => (
   />
 );
 
-const getUserFromStorage = () => {
-  try {
-    const saved = JSON.parse(localStorage.getItem('gwic-admin-session') || 'null');
-    return saved && ADMIN_ROLES.has(saved.role) ? saved : null;
-  } catch {
-    return null;
-  }
-};
-
-const fetchAdminData = async (endpoint) => {
+const fetchAdminData = async (endpoint, { method = 'GET', body } = {}) => {
   const response = await fetch(`${API_BASE}/api/admin/${endpoint}`, {
+    method,
     credentials: 'include',
-    headers: { Accept: 'application/json' },
+    headers: {
+      Accept: 'application/json',
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     cache: 'no-store',
   });
 
   if (response.status === 401) {
-    localStorage.removeItem('gwic-admin-session');
     throw new Error('Your session expired. Please sign in again.');
   }
 
+  const payload = await safeJson(response);
   if (!response.ok) {
-    const error = await safeJson(response) ?? { message: 'Unable to load admin data.' };
-    throw new Error(error.message || 'Unable to load admin data.');
+    throw new Error(payload?.message || 'Unable to load admin data.');
   }
 
-  return (await safeJson(response)) ?? {};
+  if (!payload) throw new Error('The server returned an invalid response.');
+  return payload;
 };
 
 const loadCurrentAdminSession = async () => {
@@ -121,38 +126,55 @@ const loadCurrentAdminSession = async () => {
       cache: 'no-store',
     });
 
-    if (response.status === 401 || !response.ok) {
-      return null;
+    if (response.status === 401) {
+      return { user: null, error: '' };
+    }
+
+    if (!response.ok) {
+      return { user: null, error: 'Unable to verify the admin session. Check the backend service.' };
     }
 
     const payload = await safeJson(response);
+    if (!payload) {
+      return { user: null, error: 'The backend returned an invalid session response.' };
+    }
     const user = payload?.user;
     if (!user || !ADMIN_ROLES.has(user.role)) {
-      return null;
+      return { user: null, error: '' };
     }
 
     return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      error: '',
     };
-  } catch (error) {
-    console.warn('Failed to fetch admin session:', error);
-    return null;
+  } catch {
+    return {
+      user: null,
+      error: 'Unable to reach the backend. Check the API URL and backend availability before signing in.',
+    };
   }
 };
 
 function App() {
-  const [session, setSession] = useState(getUserFromStorage);
+  const [session, setSession] = useState(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [sessionError, setSessionError] = useState('');
 
   useEffect(() => {
     let active = true;
 
-    loadCurrentAdminSession().then((user) => {
-      if (active && user) {
-        setSession(user);
+    loadCurrentAdminSession().then((result) => {
+      if (active) {
+        setSession(result.user);
+        setSessionError(result.error);
       }
+    }).finally(() => {
+      if (active) setCheckingSession(false);
     });
 
     return () => {
@@ -160,18 +182,12 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (session) {
-      localStorage.setItem('gwic-admin-session', JSON.stringify(session));
-    } else {
-      localStorage.removeItem('gwic-admin-session');
-    }
-  }, [session]);
+  if (checkingSession) return <div className="state-box">Checking secure admin session…</div>;
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={session ? <Navigate to="/" replace /> : <LoginPage onLogin={setSession} />} />
+        <Route path="/login" element={session ? <Navigate to="/" replace /> : <LoginPage onLogin={setSession} sessionError={sessionError} />} />
         <Route
           path="/"
           element={session ? <AdminLayout session={session} onLogout={async () => {
@@ -192,6 +208,7 @@ function App() {
           <Route path="wallets" element={<WalletsPage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="support" element={<SupportPage />} />
+          <Route path="activity" element={<ActivityPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to={session ? '/' : '/login'} replace />} />
@@ -200,7 +217,7 @@ function App() {
   );
 }
 
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, sessionError }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -274,7 +291,7 @@ function LoginPage({ onLogin }) {
           </div>
 
           <h1>Admin Access</h1>
-          <p className="login-subtitle">Sign in to manage GWIC operations and monitor platform activities.</p>
+          <p className="login-subtitle">Sign in to manage Kalma Capital operations and monitor platform activity.</p>
 
           <form className="login-form" onSubmit={handleSubmit}>
             <label className="field-wrap">
@@ -301,6 +318,7 @@ function LoginPage({ onLogin }) {
             </label>
 
             {error ? <p className="error-banner">{error}</p> : null}
+            {sessionError ? <p className="error-banner" role="alert">{sessionError}</p> : null}
 
             <button type="submit" className="primary-button login-submit" disabled={pending}>
               <ArrowRight size={20} />
@@ -315,12 +333,12 @@ function LoginPage({ onLogin }) {
 
           <div className="info-note">
             <span className="info-icon">i</span>
-            <p>Use a real GWIC admin account from the shared backend database.</p>
+            <p>Use an admin account provisioned through the backend deployment. Passwords are never stored in this app.</p>
           </div>
         </div>
 
         <footer className="login-footer">
-          <span>GWIC — Admin Panel</span>
+          <span>Kalma Capital — Admin</span>
           <span>Manage • Monitor • Grow</span>
         </footer>
       </div>
@@ -330,7 +348,9 @@ function LoginPage({ onLogin }) {
 
 function AdminLayout({ session, onLogout }) {
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarState, setSidebarState] = useState({ pathname: location.pathname, open: false });
+  const sidebarOpen = sidebarState.pathname === location.pathname && sidebarState.open;
+  const closeSidebar = () => setSidebarState({ pathname: location.pathname, open: false });
 
   const navItems = [
     { to: '/', label: 'Overview', icon: LayoutDashboard },
@@ -339,21 +359,23 @@ function AdminLayout({ session, onLogout }) {
     { to: '/wallets', label: 'Wallets', icon: WalletCards },
     { to: '/transactions', label: 'Transactions', icon: Activity },
     { to: '/support', label: 'Support', icon: Ticket },
+    { to: '/activity', label: 'Activity log', icon: ClipboardList },
     { to: '/settings', label: 'Settings', icon: Settings2 },
   ];
 
   const currentTitle = navItems.find((item) => item.to === location.pathname)?.label || 'Overview';
 
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
-
   return (
     <div className="admin-app">
-      <button type="button" className="mobile-toggle" onClick={() => setSidebarOpen((value) => !value)} aria-label="Toggle navigation">
+      <button
+        type="button"
+        className="mobile-toggle"
+        onClick={() => setSidebarState({ pathname: location.pathname, open: !sidebarOpen })}
+        aria-label="Toggle navigation"
+      >
         ☰
       </button>
-      <div className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)} aria-hidden="true" />
+      <div className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`} onClick={closeSidebar} aria-hidden="true" />
 
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div>
@@ -374,7 +396,7 @@ function AdminLayout({ session, onLogout }) {
                   to={item.to}
                   end={item.to === '/'}
                   className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={closeSidebar}
                 >
                   <span className="nav-icon"><Icon size={16} /></span>
                   <span>{item.label}</span>
@@ -409,7 +431,7 @@ function AdminLayout({ session, onLogout }) {
           <div className="topbar-actions">
             <button type="button" className="secondary-button" onClick={() => window.location.reload()}>
               <ArrowUpRight size={16} />
-              <span>Refresh data</span>
+              <span>Reload</span>
             </button>
             <Link to="/settings" className="primary-button">
               <Settings2 size={16} />
@@ -419,7 +441,7 @@ function AdminLayout({ session, onLogout }) {
         </header>
 
         <div className="content-area">
-          <Outlet />
+          <Outlet context={session} />
         </div>
       </main>
     </div>
@@ -467,7 +489,7 @@ function DashboardPage() {
     {
       label: 'Wallet balance',
       value: formatCurrency(data.summary.walletBalance || 0),
-      change: `${data.summary.adminUsers || 0} admins`,
+      change: 'Across all wallet accounts',
       tone: 'positive',
       icon: WalletCards,
     },
@@ -479,29 +501,24 @@ function DashboardPage() {
       icon: ShieldCheck,
     },
     {
-      label: 'Support queue',
-      value: String(data.supportTickets?.length || 0),
-      change: 'live tickets',
+      label: 'Open support',
+      value: String(data.summary.openSupportTickets || 0),
+      change: 'open or in progress',
       tone: 'neutral',
       icon: Ticket,
     },
-  ];
-
-  const healthStatus = [
-    { label: 'Onboarding completion', value: 82, color: 'success' },
-    { label: 'KYC approval rate', value: 91, color: 'success' },
-    { label: 'Wallet risk flags', value: 14, color: 'warning' },
-    { label: 'Support SLA', value: 76, color: 'neutral' },
   ];
 
   if (loading) {
     return <div className="state-box">Loading dashboard…</div>;
   }
 
+  if (error) {
+    return <div className="error-banner inline-error" role="alert">{error}</div>;
+  }
+
   return (
     <>
-      {error ? <div className="error-banner inline-error">{error}</div> : null}
-
       <section className="metrics-grid">
         {kpis.map((item) => {
           const Icon = item.icon;
@@ -516,62 +533,6 @@ function DashboardPage() {
             </article>
           );
         })}
-      </section>
-
-      <section className="insight-grid">
-        <div className="panel insight-panel">
-          <div className="panel-header">
-            <div>
-              <h3>Operations health</h3>
-              <p className="section-note">Live business pulse and platform resilience</p>
-            </div>
-          </div>
-          <div className="status-stack">
-            {healthStatus.map((item) => (
-              <div key={item.label} className="status-row">
-                <div className="status-row-meta">
-                  <span>{item.label}</span>
-                  <strong>{item.value}%</strong>
-                </div>
-                <div className="progress-track">
-                  <span className={`progress-bar ${item.color}`} style={{ width: `${item.value}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel insight-panel">
-          <div className="panel-header">
-            <div>
-              <h3>Priority action list</h3>
-              <p className="section-note">High-impact items requiring attention</p>
-            </div>
-          </div>
-          <div className="action-list">
-            <div className="action-item">
-              <div className="action-dot success" />
-              <div>
-                <strong>Review pending KYC queue</strong>
-                <small>{data.summary.pendingKyc || 0} users awaiting approval</small>
-              </div>
-            </div>
-            <div className="action-item">
-              <div className="action-dot warning" />
-              <div>
-                <strong>Watch wallet anomalies</strong>
-                <small>12 flagged balances need manual review</small>
-              </div>
-            </div>
-            <div className="action-item">
-              <div className="action-dot neutral" />
-              <div>
-                <strong>Support response time</strong>
-                <small>Average response remains within SLA</small>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
       <section className="panel-grid two-up">
@@ -597,7 +558,7 @@ function DashboardPage() {
                   <td>{row.user}</td>
                   <td>{row.type}</td>
                   <td>{row.amount}</td>
-                  <td><span className="status-pill success">{row.status}</span></td>
+                  <td><span className={`status-pill ${getStatusTone(row.status)}`}>{row.status}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -629,6 +590,8 @@ function DashboardPage() {
 function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -637,8 +600,8 @@ function UsersPage() {
       .then((payload) => {
         if (active) setUsers(payload.users || []);
       })
-      .catch(() => {
-        if (active) setUsers([]);
+      .catch((fetchError) => {
+        if (active) setError(fetchError.message || 'Unable to load users.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -651,24 +614,27 @@ function UsersPage() {
 
   const overviewStats = [
     { label: 'Total users', value: users.length || 0 },
-    { label: 'Verified', value: users.filter((user) => user.status === 'verified' || user.status === 'active').length },
+    { label: 'KYC verified', value: users.filter((user) => user.kycVerified).length },
     { label: 'Admins', value: users.filter((user) => user.role === 'admin' || user.role === 'super_admin').length },
   ];
+  const visibleUsers = users.filter((user) => (
+    `${user.name} ${user.email}`.toLowerCase().includes(search.trim().toLowerCase())
+  ));
 
   if (loading) {
     return <div className="state-box">Loading users…</div>;
+  }
+
+  if (error) {
+    return <div className="error-banner inline-error" role="alert">{error}</div>;
   }
 
   return (
     <div className="panel">
       <div className="panel-header">
         <div>
-          <h3>User management</h3>
-          <p className="section-note">Manage member access and account status</p>
-        </div>
-        <div className="page-actions">
-          <button type="button" className="secondary-button">Filter</button>
-          <button type="button" className="primary-button">Invite user</button>
+          <h3>User directory</h3>
+          <p className="section-note">Live account records from the backend. Access changes are not enabled here.</p>
         </div>
       </div>
 
@@ -681,8 +647,13 @@ function UsersPage() {
         ))}
       </div>
 
-      {users.length === 0 ? (
-        <div className="empty-state">No users found for the current workspace.</div>
+      <label className="search-field">
+        <span>Search users</span>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name or email" />
+      </label>
+
+      {visibleUsers.length === 0 ? (
+        <div className="empty-state">{users.length ? 'No users match that search.' : 'No user records were returned.'}</div>
       ) : (
         <div className="table-wrap">
           <table>
@@ -691,17 +662,19 @@ function UsersPage() {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
-                <th>Status</th>
+                <th>Account</th>
+                <th>KYC</th>
                 <th>Product</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((row) => (
+              {visibleUsers.map((row) => (
                 <tr key={row.id}>
                   <td>{row.name}</td>
                   <td>{row.email}</td>
                   <td>{normalizeRole(row.role)}</td>
                   <td><span className={`status-pill ${getStatusTone(row.status)}`}>{row.status || 'Active'}</span></td>
+                  <td><span className={`status-pill ${row.kycVerified ? 'success' : 'warning'}`}>{row.kycVerified ? 'Verified' : 'Not verified'}</span></td>
                   <td>{row.product || '—'}</td>
                 </tr>
               ))}
@@ -714,18 +687,29 @@ function UsersPage() {
 }
 
 function KYCPage() {
-  const [users, setUsers] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [stats, setStats] = useState({ pending: 0, verified: 0, rejected: 0 });
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState('pending');
+  const [reviewNotes, setReviewNotes] = useState({});
+  const [evidenceChecks, setEvidenceChecks] = useState({});
+  const [pendingActionId, setPendingActionId] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     let active = true;
 
-    fetchAdminData('kyc')
+    fetchAdminData(`operations/verification-requests?status=${status}`)
       .then((payload) => {
-        if (active) setUsers(payload.users || []);
+        if (active) {
+          setRequests(payload.requests || []);
+          setStats(payload.stats || { pending: 0, verified: 0, rejected: 0 });
+          setError('');
+        }
       })
-      .catch(() => {
-        if (active) setUsers([]);
+      .catch((fetchError) => {
+        if (active) setError(fetchError.message || 'Unable to load verification requests.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -734,13 +718,46 @@ function KYCPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [status]);
 
-  const kycSummary = [
-    { label: 'Pending review', value: users.filter((user) => user.status === 'pending').length },
-    { label: 'Verified', value: users.filter((user) => user.status === 'verified').length },
-    { label: 'Requires action', value: users.filter((user) => user.status === 'rejected' || user.status === 'in_review').length },
-  ];
+  const handleReview = async (request, decision) => {
+    const note = (reviewNotes[request.id] || '').trim();
+    if (!evidenceChecks[request.id]) {
+      setError('Confirm that you reviewed evidence using the approved verification process.');
+      return;
+    }
+    if (note.length < 3) {
+      setError('Add a reviewer note of at least 3 characters before saving.');
+      return;
+    }
+
+    setPendingActionId(request.id);
+    setError('');
+    setMessage('');
+    try {
+      const payload = await fetchAdminData(`operations/verification-requests/${encodeURIComponent(request.id)}`, {
+        method: 'PATCH',
+        body: { decision, note, evidenceReviewed: true },
+      });
+      setMessage(`Verification request ${decision}.`);
+      setReviewNotes((current) => ({ ...current, [request.id]: '' }));
+      setEvidenceChecks((current) => ({ ...current, [request.id]: false }));
+      setRequests((current) => (
+        status === 'pending'
+          ? current.filter((item) => item.id !== request.id)
+          : current.map((item) => (item.id === request.id ? { ...item, status: payload.request.status } : item))
+      ));
+      setStats((current) => ({
+        ...current,
+        pending: Math.max(0, current.pending - 1),
+        [decision]: current[decision] + 1,
+      }));
+    } catch (actionError) {
+      setError(actionError.message || 'Unable to save the verification decision.');
+    } finally {
+      setPendingActionId('');
+    }
+  };
 
   if (loading) {
     return <div className="state-box">Loading KYC review…</div>;
@@ -751,15 +768,31 @@ function KYCPage() {
       <div className="panel-header">
         <div>
           <h3>KYC queue</h3>
-          <p className="section-note">Review onboarding and compliance status</p>
+          <p className="section-note">Review actual verification requests. This console does not store identity documents.</p>
         </div>
-        <div className="page-actions">
-          <button type="button" className="secondary-button">Review policy</button>
-        </div>
+        <label className="filter-field">
+          <span>Status</span>
+          <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="pending">Pending</option>
+            <option value="all">All requests</option>
+            <option value="verified">Verified</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </label>
       </div>
 
+      {error ? <div className="error-banner inline-error" role="alert">{error}</div> : null}
+      {message ? <p className="success-message" role="status">{message}</p> : null}
+      <p className="review-disclaimer">
+        Before deciding, verify identity evidence through your approved secure process. Do not approve based only on the name and date of birth shown here.
+      </p>
+
       <div className="summary-strip">
-        {kycSummary.map((item) => (
+        {[
+          { label: 'Pending review', value: stats.pending },
+          { label: 'Verified', value: stats.verified },
+          { label: 'Rejected', value: stats.rejected },
+        ].map((item) => (
           <div key={item.label} className="summary-pill">
             <span>{item.label}</span>
             <strong>{item.value}</strong>
@@ -767,30 +800,66 @@ function KYCPage() {
         ))}
       </div>
 
-      {users.length === 0 ? (
-        <div className="empty-state">No KYC records are waiting for review.</div>
+      {requests.length === 0 ? (
+        error ? null : <div className="empty-state">No verification requests match this status.</div>
       ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Status</th>
-                <th>Role</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.name}</td>
-                  <td>{row.email}</td>
-                  <td><span className={`status-pill ${getStatusTone(row.statusCode)}`}>{row.status}</span></td>
-                  <td>{normalizeRole(row.role)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="review-list">
+          {requests.map((request) => (
+            <article key={request.id} className="review-card">
+              <div className="review-card-heading">
+                <div>
+                  <h4>{request.legalName}</h4>
+                  <p>{request.user?.email || 'Account unavailable'} · Submitted {formatDate(request.createdAt)}</p>
+                </div>
+                <span className={`status-pill ${getStatusTone(request.status)}`}>{normalizeRole(request.status)}</span>
+              </div>
+              <dl className="review-details">
+                <div><dt>Account name</dt><dd>{request.user?.name || '—'}</dd></div>
+                <div><dt>Date of birth</dt><dd>{formatDate(request.dateOfBirth)}</dd></div>
+                <div><dt>Phone</dt><dd>{request.user?.phone || '—'}</dd></div>
+              </dl>
+              {request.status === 'pending' ? (
+                <div className="review-form">
+                  <label className="field-wrap">
+                    <span className="field-label"><strong>Reviewer note</strong></span>
+                    <textarea
+                      value={reviewNotes[request.id] || ''}
+                      maxLength={500}
+                      required
+                      placeholder="Record the reason for this decision"
+                      onChange={(event) => setReviewNotes((current) => ({ ...current, [request.id]: event.target.value }))}
+                    />
+                  </label>
+                  <label className="evidence-confirmation">
+                    <input
+                      type="checkbox"
+                      checked={!!evidenceChecks[request.id]}
+                      onChange={(event) => setEvidenceChecks((current) => ({ ...current, [request.id]: event.target.checked }))}
+                    />
+                    <span>I reviewed the evidence using the approved verification process.</span>
+                  </label>
+                  <div className="page-actions">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={pendingActionId === request.id}
+                      onClick={() => handleReview(request, 'verified')}
+                    >
+                      {pendingActionId === request.id ? 'Saving…' : 'Mark verified'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={pendingActionId === request.id}
+                      onClick={() => handleReview(request, 'rejected')}
+                    >
+                      Reject request
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </article>
+          ))}
         </div>
       )}
     </div>
@@ -798,65 +867,18 @@ function KYCPage() {
 }
 
 function WalletsPage() {
-  const walletCards = [
-    { label: 'Total wallet value', value: '₦12.4M' },
-    { label: 'Successful deposits', value: '86.4%' },
-    { label: 'Flagged balances', value: '12 users' },
-  ];
-
-  return (
-    <div className="panel">
-      <div className="panel-header">
-        <div>
-          <h3>Wallet controls</h3>
-          <p className="section-note">Cash movement, reconciliation, and risk monitoring</p>
-        </div>
-        <div className="page-actions">
-          <button type="button" className="secondary-button">Audit logs</button>
-          <button type="button" className="primary-button">Reconcile balances</button>
-        </div>
-      </div>
-
-      <div className="wallet-summary-grid">
-        {walletCards.map((item) => (
-          <div key={item.label} className="summary-box">
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
-          </div>
-        ))}
-      </div>
-
-      <div className="detail-grid">
-        <div className="mini-panel">
-          <h4>Reconciliation checklist</h4>
-          <ul className="check-list">
-            <li>Daily wallet drift review</li>
-            <li>Failed settlement reconcile</li>
-            <li>Manual approval on flagged balances</li>
-          </ul>
-        </div>
-        <div className="mini-panel">
-          <h4>Operational notes</h4>
-          <p>Risk controls remain stable and no critical wallet exception requires emergency action.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TransactionsPage() {
-  const [transactions, setTransactions] = useState([]);
+  const [data, setData] = useState({ summary: {}, wallets: [] });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
-
-    fetchAdminData('transactions')
+    fetchAdminData('operations/wallets')
       .then((payload) => {
-        if (active) setTransactions(payload.transactions || []);
+        if (active) setData(payload);
       })
-      .catch(() => {
-        if (active) setTransactions([]);
+      .catch((fetchError) => {
+        if (active) setError(fetchError.message || 'Unable to load wallets.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -867,22 +889,137 @@ function TransactionsPage() {
     };
   }, []);
 
-  const totalVolume = transactions.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  if (loading) return <div className="state-box">Loading wallet records…</div>;
+  if (error) return <div className="error-banner inline-error" role="alert">{error}</div>;
+
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <div>
+          <h3>Wallet overview</h3>
+          <p className="section-note">Read-only balances from the backend. No balance adjustments are available here.</p>
+        </div>
+      </div>
+
+      <div className="wallet-summary-grid">
+        <div className="summary-box">
+          <span>Total wallet balance</span>
+          <strong>{formatCurrency(data.summary.totalBalance)}</strong>
+        </div>
+        <div className="summary-box">
+          <span>Wallet accounts</span>
+          <strong>{data.summary.walletCount || 0}</strong>
+        </div>
+        <div className="summary-box">
+          <span>Records shown</span>
+          <strong>{data.summary.recordsShown || 0}</strong>
+        </div>
+      </div>
+
+      {data.wallets?.length ? (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Account holder</th><th>Email</th><th>Balance</th><th>Updated</th></tr>
+            </thead>
+            <tbody>
+              {data.wallets.map((wallet) => (
+                <tr key={wallet.id}>
+                  <td>{wallet.user}</td>
+                  <td>{wallet.email || '—'}</td>
+                  <td>{formatCurrency(wallet.balance)}</td>
+                  <td>{formatDate(wallet.updatedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <div className="empty-state">No wallet records were returned.</div>}
+      <p className="section-note">The balance above includes all wallet records; the table is limited to the 100 most recently updated.</p>
+    </div>
+  );
+}
+
+function TransactionsPage() {
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  useEffect(() => {
+    let active = true;
+
+    fetchAdminData('transactions')
+      .then((payload) => {
+        if (active) setTransactions(payload.transactions || []);
+      })
+      .catch((fetchError) => {
+        if (active) setError(fetchError.message || 'Unable to load transactions.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const visibleTransactions = transactions.filter((row) => (
+    statusFilter === 'all' || String(row.status).toLowerCase() === statusFilter
+  ));
+  const totalVolume = visibleTransactions.reduce((sum, row) => {
+    const rawAmount = typeof row.amount === 'number'
+      ? row.amount
+      : Number(String(row.amount || '').replace(/[^\d.-]/g, ''));
+    return sum + (Number.isFinite(rawAmount) ? rawAmount : 0);
+  }, 0);
+
+  const exportTransactions = () => {
+    const escapeCell = (value) => {
+      const text = String(value ?? '');
+      const safeText = /^[=+\-@]/.test(text.trim()) ? `'${text}` : text;
+      return `"${safeText.replace(/"/g, '""')}"`;
+    };
+    const rows = [
+      ['Reference', 'User', 'Type', 'Amount', 'Status', 'Date'],
+      ...visibleTransactions.map((row) => [row.id, row.user, row.type, row.amount, row.status, row.createdAt]),
+    ];
+    const csv = rows.map((row) => row.map(escapeCell).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'kalma-transactions.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return <div className="state-box">Loading transactions…</div>;
   }
+  if (error) return <div className="error-banner inline-error" role="alert">{error}</div>;
 
   return (
     <div className="panel">
       <div className="panel-header">
         <div>
           <h3>Transactions</h3>
-          <p className="section-note">Track deposits, withdrawals, and wallet movement</p>
+          <p className="section-note">Latest backend records. Export and filters apply to the records currently loaded.</p>
         </div>
         <div className="page-actions">
-          <button type="button" className="secondary-button">Filter</button>
-          <button type="button" className="primary-button">Export</button>
+          <label className="filter-field">
+            <span>Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">All</option>
+              <option value="successful">Successful</option>
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="requires_approval">Needs approval</option>
+              <option value="failed">Failed</option>
+              <option value="reversed">Reversed</option>
+            </select>
+          </label>
+          <button type="button" className="primary-button" onClick={exportTransactions} disabled={!visibleTransactions.length}>Export CSV</button>
         </div>
       </div>
 
@@ -893,16 +1030,16 @@ function TransactionsPage() {
         </div>
         <div className="summary-pill">
           <span>Records</span>
-          <strong>{transactions.length}</strong>
+          <strong>{visibleTransactions.length}</strong>
         </div>
         <div className="summary-pill">
           <span>Completed</span>
-          <strong>{transactions.filter((row) => String(row.status).toLowerCase() === 'completed' || String(row.status).toLowerCase() === 'success').length}</strong>
+          <strong>{visibleTransactions.filter((row) => ['completed', 'success', 'successful'].includes(String(row.status).toLowerCase())).length}</strong>
         </div>
       </div>
 
-      {transactions.length === 0 ? (
-        <div className="empty-state">No transactions have been recorded yet.</div>
+      {visibleTransactions.length === 0 ? (
+        <div className="empty-state">{transactions.length ? 'No transactions match this status.' : 'No transactions have been recorded yet.'}</div>
       ) : (
         <div className="table-wrap">
           <table>
@@ -917,7 +1054,7 @@ function TransactionsPage() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((row) => (
+              {visibleTransactions.map((row) => (
                 <tr key={row.id}>
                   <td>{row.id}</td>
                   <td>{row.user}</td>
@@ -937,17 +1074,28 @@ function TransactionsPage() {
 
 function SupportPage() {
   const [tickets, setTickets] = useState([]);
+  const [stats, setStats] = useState({ open: 0, inProgress: 0, resolved: 0 });
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusDrafts, setStatusDrafts] = useState({});
+  const [noteDrafts, setNoteDrafts] = useState({});
+  const [pendingActionId, setPendingActionId] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     let active = true;
 
-    fetchAdminData('support')
+    fetchAdminData(`operations/support-requests?status=${statusFilter}`)
       .then((payload) => {
-        if (active) setTickets(payload.tickets || []);
+        if (active) {
+          setTickets(payload.requests || []);
+          setStats(payload.stats || { open: 0, inProgress: 0, resolved: 0 });
+          setError('');
+        }
       })
-      .catch(() => {
-        if (active) setTickets([]);
+      .catch((fetchError) => {
+        if (active) setError(fetchError.message || 'Unable to load support requests.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -956,12 +1104,45 @@ function SupportPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [statusFilter]);
 
-  const prioritySummary = {
-    high: tickets.filter((ticket) => getPriorityTone(ticket.priority) === 'high').length,
-    medium: tickets.filter((ticket) => getPriorityTone(ticket.priority) === 'medium').length,
-    low: tickets.filter((ticket) => getPriorityTone(ticket.priority) === 'low').length,
+  const handleTicketUpdate = async (ticket) => {
+    const note = (noteDrafts[ticket.id] || '').trim();
+    const status = statusDrafts[ticket.id] || ticket.status;
+    if (note.length < 3) {
+      setError('Add a staff note of at least 3 characters before saving.');
+      return;
+    }
+
+    setPendingActionId(ticket.id);
+    setError('');
+    setMessage('');
+    try {
+      const payload = await fetchAdminData(`operations/support-requests/${encodeURIComponent(ticket.id)}`, {
+        method: 'PATCH',
+        body: { status, note },
+      });
+      setMessage(`Support request ${ticket.reference} updated.`);
+      setNoteDrafts((current) => ({ ...current, [ticket.id]: '' }));
+      setTickets((current) => (
+        statusFilter !== 'all' && status !== statusFilter
+          ? current.filter((item) => item.id !== ticket.id)
+          : current.map((item) => (item.id === ticket.id ? { ...item, status: payload.request.status } : item))
+      ));
+      setStats((current) => {
+        if (ticket.status === status) return current;
+        const statusKeys = { open: 'open', in_progress: 'inProgress', resolved: 'resolved' };
+        return {
+          ...current,
+          [statusKeys[ticket.status]]: Math.max(0, current[statusKeys[ticket.status]] - 1),
+          [statusKeys[status]]: current[statusKeys[status]] + 1,
+        };
+      });
+    } catch (actionError) {
+      setError(actionError.message || 'Unable to update this support request.');
+    } finally {
+      setPendingActionId('');
+    }
   };
 
   if (loading) {
@@ -973,35 +1154,78 @@ function SupportPage() {
       <div className="panel-header">
         <div>
           <h3>Customer support</h3>
-          <p className="section-note">Resolve user issues and operational requests</p>
+          <p className="section-note">Live customer requests. Each status change requires a staff note and is audited.</p>
         </div>
-        <div className="page-actions">
-          <button type="button" className="secondary-button">Inbox</button>
-          <button type="button" className="primary-button">New ticket</button>
-        </div>
+        <label className="filter-field">
+          <span>Status</span>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="all">All requests</option>
+            <option value="open">Open</option>
+            <option value="in_progress">In progress</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </label>
       </div>
+
+      {error ? <div className="error-banner inline-error" role="alert">{error}</div> : null}
+      {message ? <p className="success-message" role="status">{message}</p> : null}
 
       <div className="summary-strip">
-        <div className="summary-pill"><span>High priority</span><strong>{prioritySummary.high}</strong></div>
-        <div className="summary-pill"><span>Medium</span><strong>{prioritySummary.medium}</strong></div>
-        <div className="summary-pill"><span>Low</span><strong>{prioritySummary.low}</strong></div>
+        <div className="summary-pill"><span>Open</span><strong>{stats.open}</strong></div>
+        <div className="summary-pill"><span>In progress</span><strong>{stats.inProgress}</strong></div>
+        <div className="summary-pill"><span>Resolved</span><strong>{stats.resolved}</strong></div>
       </div>
 
-      {tickets.length === 0 ? (
-        <div className="empty-state">No customer support tickets have been created yet.</div>
+      {error && !tickets.length ? null : tickets.length === 0 ? (
+        <div className="empty-state">No support requests match this status.</div>
       ) : (
-        <div className="stack-list">
+        <div className="review-list">
           {tickets.map((ticket) => (
-            <div key={ticket.id} className="list-item large">
-              <div>
-                <strong>{ticket.customer}</strong>
-                <p>{ticket.email}</p>
+            <article key={ticket.id} className="review-card">
+              <div className="review-card-heading">
+                <div>
+                  <h4>{ticket.subject}</h4>
+                  <p>{ticket.user?.name || 'Unknown user'} · {ticket.user?.email || 'No email'} · {ticket.reference}</p>
+                </div>
+                <span className={`status-pill ${getStatusTone(ticket.status)}`}>{normalizeRole(ticket.status)}</span>
               </div>
-              <div className="subject-wrap">
-                <span>{ticket.subject}</span>
+              <p className="support-message">{ticket.message}</p>
+              <div className="support-meta">
+                <span>Category: {normalizeRole(ticket.category)}</span>
+                <span>Submitted: {formatDate(ticket.createdAt)}</span>
               </div>
-              <span className={`priority-badge ${getPriorityTone(ticket.priority)}`}>{ticket.priority || 'Medium'}</span>
-            </div>
+              <div className="review-form">
+                <label className="filter-field">
+                  <span>Update status</span>
+                  <select
+                    value={statusDrafts[ticket.id] || ticket.status}
+                    onChange={(event) => setStatusDrafts((current) => ({ ...current, [ticket.id]: event.target.value }))}
+                  >
+                    <option value="open">Open</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                </label>
+                <label className="field-wrap">
+                  <span className="field-label"><strong>Staff note</strong></span>
+                  <textarea
+                    value={noteDrafts[ticket.id] || ''}
+                    maxLength={1000}
+                    required
+                    placeholder="Record the action taken"
+                    onChange={(event) => setNoteDrafts((current) => ({ ...current, [ticket.id]: event.target.value }))}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={pendingActionId === ticket.id}
+                  onClick={() => handleTicketUpdate(ticket)}
+                >
+                  {pendingActionId === ticket.id ? 'Saving…' : 'Save update'}
+                </button>
+              </div>
+            </article>
           ))}
         </div>
       )}
@@ -1009,38 +1233,90 @@ function SupportPage() {
   );
 }
 
+function ActivityPage() {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetchAdminData('operations/audit-logs')
+      .then((payload) => {
+        if (active) setEntries(payload.entries || []);
+      })
+      .catch((fetchError) => {
+        if (active) setError(fetchError.message || 'Unable to load the audit log.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) return <div className="state-box">Loading activity log…</div>;
+  if (error) return <div className="error-banner inline-error" role="alert">{error}</div>;
+
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <div>
+          <h3>Staff activity log</h3>
+          <p className="section-note">KYC decisions and support status changes recorded by the backend.</p>
+        </div>
+      </div>
+      {entries.length === 0 ? <div className="empty-state">No staff actions have been recorded.</div> : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Time</th><th>Staff member</th><th>Action</th><th>Status change</th><th>Note</th></tr>
+            </thead>
+            <tbody>
+              {entries.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{formatDateTime(entry.createdAt)}</td>
+                  <td>{entry.actor?.name || entry.actor?.email || 'Unknown admin'}</td>
+                  <td>{entry.action === 'kyc.reviewed' ? 'KYC review' : 'Support update'}</td>
+                  <td>{normalizeRole(entry.previousStatus)} → {normalizeRole(entry.nextStatus)}</td>
+                  <td>{entry.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsPage() {
-  const settingsCards = [
-    {
-      title: 'Security',
-      description: 'Require multi-factor authentication for all admins and super-admins.',
-    },
-    {
-      title: 'Notifications',
-      description: 'Send daily account health and wallet alerts to the operations team.',
-    },
-    {
-      title: 'Risk rules',
-      description: 'Auto-flag wallet anomalies and suspicious onboarding patterns.',
-    },
-  ];
+  const session = useOutletContext();
 
   return (
     <div className="panel settings-panel">
       <div className="panel-header">
         <div>
-          <h3>Admin settings</h3>
-          <p className="section-note">Control the security and operational preferences of GWIC admin</p>
+          <h3>Admin account</h3>
+          <p className="section-note">This panel only shows settings that are confirmed by the backend.</p>
         </div>
-        <button type="button" className="secondary-button">Save changes</button>
       </div>
       <div className="settings-grid">
-        {settingsCards.map((setting) => (
-          <div key={setting.title} className="setting-box">
-            <h4>{setting.title}</h4>
-            <p>{setting.description}</p>
-          </div>
-        ))}
+        <div className="setting-box">
+          <h4>Signed-in account</h4>
+          <p>{session?.name || 'Admin'} · {session?.email || '—'}</p>
+          <p>Role: {normalizeRole(session?.role)}</p>
+        </div>
+        <div className="setting-box">
+          <h4>Session security</h4>
+          <p>Admin access is verified by the backend and held in an HttpOnly session cookie.</p>
+          <p>Multi-factor authentication and notification preferences are not managed from this screen.</p>
+        </div>
+        <div className="setting-box">
+          <h4>Audit history</h4>
+          <p>Review saved KYC and support actions in the staff activity log.</p>
+          <Link to="/activity" className="link-button">Open activity log</Link>
+        </div>
       </div>
     </div>
   );
