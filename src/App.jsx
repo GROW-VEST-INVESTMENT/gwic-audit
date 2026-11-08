@@ -12,15 +12,19 @@ import {
   Lock,
   LogOut,
   Mail,
+  Menu,
   Settings2,
   ShieldCheck,
   Ticket,
   Users,
   WalletCards,
+  X,
 } from 'lucide-react';
 import './App.css';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const API_BASE = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000').replace(/\/+$/, '')
+  : '';
 const ADMIN_ROLES = new Set(['admin', 'super_admin']);
 
 const safeJson = async (response) => {
@@ -253,11 +257,21 @@ function LoginPage({ onLogin, sessionError }) {
         throw new Error('This account does not have admin access.');
       }
 
+      const sessionResponse = await fetch(`${API_BASE}/api/auth/me`, {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      const sessionPayload = await safeJson(sessionResponse);
+      if (!sessionResponse.ok || !ADMIN_ROLES.has(sessionPayload?.user?.role)) {
+        throw new Error('Sign-in was accepted, but the secure session could not be saved. Please try again or use a browser that allows site cookies.');
+      }
+
       onLogin({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        id: sessionPayload.user.id,
+        name: sessionPayload.user.name,
+        email: sessionPayload.user.email,
+        role: sessionPayload.user.role,
       });
     } catch (loginError) {
       setError(loginError.message || 'Unable to sign in.');
@@ -371,9 +385,10 @@ function AdminLayout({ session, onLogout }) {
         type="button"
         className="mobile-toggle"
         onClick={() => setSidebarState({ pathname: location.pathname, open: !sidebarOpen })}
-        aria-label="Toggle navigation"
+        aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'}
+        aria-expanded={sidebarOpen}
       >
-        ☰
+        {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
       <div className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`} onClick={closeSidebar} aria-hidden="true" />
 
@@ -541,7 +556,8 @@ function DashboardPage() {
             <h3>Recent transactions</h3>
             <Link to="/transactions" className="link-button">View all</Link>
           </div>
-          <table>
+          <div className="table-wrap">
+            <table>
             <thead>
               <tr>
                 <th>Reference</th>
@@ -562,7 +578,8 @@ function DashboardPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
 
         <div className="panel">
@@ -656,7 +673,7 @@ function UsersPage() {
         <div className="empty-state">{users.length ? 'No users match that search.' : 'No user records were returned.'}</div>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="user-directory-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -670,12 +687,12 @@ function UsersPage() {
             <tbody>
               {visibleUsers.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.name}</td>
-                  <td>{row.email}</td>
-                  <td>{normalizeRole(row.role)}</td>
-                  <td><span className={`status-pill ${getStatusTone(row.status)}`}>{row.status || 'Active'}</span></td>
-                  <td><span className={`status-pill ${row.kycVerified ? 'success' : 'warning'}`}>{row.kycVerified ? 'Verified' : 'Not verified'}</span></td>
-                  <td>{row.product || '—'}</td>
+                  <td data-label="Name">{row.name}</td>
+                  <td data-label="Email">{row.email}</td>
+                  <td data-label="Role">{normalizeRole(row.role)}</td>
+                  <td data-label="Account"><span className={`status-pill ${getStatusTone(row.status)}`}>{row.status || 'Active'}</span></td>
+                  <td data-label="KYC"><span className={`status-pill ${row.kycVerified ? 'success' : 'warning'}`}>{row.kycVerified ? 'Verified' : 'Not verified'}</span></td>
+                  <td data-label="Product">{row.product || '—'}</td>
                 </tr>
               ))}
             </tbody>

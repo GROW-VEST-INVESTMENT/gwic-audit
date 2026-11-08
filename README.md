@@ -15,7 +15,7 @@ The backend bootstraps the configured admin account when it starts. Rotate crede
 ## Deployment
 
 - Deploy `admin/` as a separate hosting project with this directory as its root.
-- Set `VITE_API_URL` to the production backend origin in the admin hosting project.
+- Production API requests use the same-origin `/api` rewrite in `vercel.json`; do not set `VITE_API_URL` in the Vercel project. This keeps the session cookie first-party on mobile browsers.
 - Set `ADMIN_URL` to the exact production admin origin in the backend deployment. Add other required browser origins to `CORS_ORIGINS` only when necessary.
 - Configure admin email and password only in the backend deployment's secret environment settings.
 - Use HTTPS for both apps so the backend's HttpOnly session cookie can be used securely.
