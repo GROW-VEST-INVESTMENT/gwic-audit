@@ -3,7 +3,6 @@ import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocat
 import {
   Activity,
   ArrowRight,
-  ArrowUpRight,
   Check,
   ClipboardList,
   Eye,
@@ -13,6 +12,7 @@ import {
   LogOut,
   Mail,
   Menu,
+  RefreshCw,
   Settings2,
   ShieldCheck,
   Ticket,
@@ -89,8 +89,8 @@ const getStatusTone = (status) => {
 
 const BrandMark = ({ className = 'brand-mark' }) => (
   <img
-    src="/gwic-logo-v2.png"
-    alt="GWIC logo"
+    src="/brand/kalma-capital-logo.png"
+    alt="Kalma Capital"
     className={className}
     loading="eager"
     decoding="async"
@@ -286,17 +286,10 @@ function LoginPage({ onLogin, sessionError }) {
         <div className="login-hero">
           <div className="hero-brand-row">
             <BrandMark className="brand-svg giant" />
-            <div className="hero-wordmark-wrap">
-              <div className="hero-wordmark">GWIC</div>
-              <div className="hero-subtitle">GROW WITH CORE</div>
-            </div>
-            <div className="chart-bars" aria-hidden="true">
-              <span /><span /><span /><span /><span /><span /><span /><span />
-            </div>
           </div>
 
           <div className="section-divider" />
-          <div className="hero-panel-title">ADMIN PANEL</div>
+          <div className="hero-panel-title">SECURE OPERATIONS PORTAL</div>
         </div>
 
         <div className="login-card">
@@ -304,8 +297,9 @@ function LoginPage({ onLogin, sessionError }) {
             <ShieldCheck size={36} />
           </div>
 
-          <h1>Admin Access</h1>
-          <p className="login-subtitle">Sign in to manage Kalma Capital operations and monitor platform activity.</p>
+          <p className="login-eyebrow">WELCOME BACK</p>
+          <h1>Admin sign in</h1>
+          <p className="login-subtitle">A secure workspace for managing Kalma Capital operations.</p>
 
           <form className="login-form" onSubmit={handleSubmit}>
             <label className="field-wrap">
@@ -342,7 +336,7 @@ function LoginPage({ onLogin, sessionError }) {
 
           <div className="secure-row">
             <span className="secure-check"><Check size={14} /></span>
-            <span>Secure Access</span>
+            <span>Protected staff access</span>
           </div>
 
           <div className="info-note">
@@ -352,8 +346,8 @@ function LoginPage({ onLogin, sessionError }) {
         </div>
 
         <footer className="login-footer">
-          <span>Kalma Capital — Admin</span>
-          <span>Manage • Monitor • Grow</span>
+          <span>Kalma Capital</span>
+          <span>Private operations workspace</span>
         </footer>
       </div>
     </div>
@@ -395,13 +389,10 @@ function AdminLayout({ session, onLogout }) {
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div>
           <div className="brand-block">
-            <div className="brand-mark">G</div>
-            <div>
-              <p className="eyebrow">Operations</p>
-              <h2>GWIC Admin</h2>
-            </div>
+            <BrandMark className="sidebar-brand-logo" />
           </div>
 
+          <p className="nav-caption">WORKSPACE</p>
           <nav className="nav">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -445,8 +436,8 @@ function AdminLayout({ session, onLogout }) {
 
           <div className="topbar-actions">
             <button type="button" className="secondary-button" onClick={() => window.location.reload()}>
-              <ArrowUpRight size={16} />
-              <span>Reload</span>
+              <RefreshCw size={16} />
+              <span>Refresh</span>
             </button>
             <Link to="/settings" className="primary-button">
               <Settings2 size={16} />
@@ -464,6 +455,7 @@ function AdminLayout({ session, onLogout }) {
 }
 
 function DashboardPage() {
+  const session = useOutletContext();
   const [data, setData] = useState({ summary: {}, transactions: [], supportTickets: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -534,6 +526,17 @@ function DashboardPage() {
 
   return (
     <>
+      <section className="dashboard-welcome">
+        <div>
+          <span className="welcome-kicker">KALMA CAPITAL · OPERATIONS</span>
+          <h2>Welcome back, {session?.name?.split(' ')[0] || 'Admin'}</h2>
+          <p>Your operations overview is up to date. Here’s what needs your attention.</p>
+        </div>
+        <div className="welcome-actions">
+          <Link to="/kyc" className="welcome-primary"><ShieldCheck size={16} /> Review KYC</Link>
+          <Link to="/users" className="welcome-secondary"><Users size={16} /> User directory</Link>
+        </div>
+      </section>
       <section className="metrics-grid">
         {kpis.map((item) => {
           const Icon = item.icon;
