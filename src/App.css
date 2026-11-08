@@ -1675,15 +1675,42 @@ td {
 .sidebar {
   position: sticky;
   top: 0;
+  display: flex;
   flex: 0 0 264px;
   width: 264px;
   min-height: 100vh;
   min-height: 100dvh;
+  overflow: hidden;
   border-right-color: rgba(223, 201, 145, 0.18);
   background:
     radial-gradient(ellipse at 12% 0%, rgba(181, 150, 85, 0.12), transparent 19rem),
     linear-gradient(165deg, #0d352b 0%, #08281f 72%, #092e24 100%);
   box-shadow: 8px 0 30px rgba(24, 35, 29, 0.08);
+}
+
+.sidebar > div:first-child {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.sidebar .nav {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(223, 201, 145, 0.4) transparent;
+  scrollbar-width: thin;
+}
+
+.sidebar-footer {
+  flex: 0 0 auto;
+  margin-top: 12px;
+}
+
+.logout-button {
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .brand-block {
