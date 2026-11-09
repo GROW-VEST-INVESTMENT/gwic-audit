@@ -2405,6 +2405,110 @@ td {
   overflow-wrap: anywhere;
 }
 
+.transaction-access-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.transaction-access-panel .panel-header {
+  margin-bottom: 0;
+}
+
+.transaction-access-copy {
+  margin: 0;
+  color: #64736a;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.transaction-restriction-current {
+  padding: 13px 15px;
+  border: 1px solid rgba(164, 52, 48, 0.18);
+  border-radius: 11px;
+  background: #fff8f6;
+}
+
+.transaction-restriction-current strong {
+  color: #8b3732;
+  font-size: 0.83rem;
+}
+
+.transaction-restriction-current p {
+  margin: 6px 0;
+  color: #684541;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.transaction-restriction-current small,
+.transaction-restriction-footer small {
+  color: #78827a;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.transaction-restriction-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #354d40;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.transaction-restriction-reason textarea {
+  width: 100%;
+  min-height: 82px;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid rgba(75, 58, 28, 0.2);
+  border-radius: 9px;
+  background: #fffefa;
+  color: #294438;
+  font: inherit;
+  font-weight: 400;
+}
+
+.transaction-restriction-reason textarea:focus {
+  outline: 2px solid rgba(12, 128, 80, 0.2);
+  border-color: #0c8050;
+}
+
+.transaction-restriction-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.transaction-restrict-button {
+  display: inline-flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  border: 1px solid #a93e37;
+  border-radius: 9px;
+  background: #a93e37;
+  color: white;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.transaction-restrict-button:hover:not(:disabled) {
+  background: #8f302a;
+}
+
+.transaction-restrict-button:disabled,
+.transaction-access-panel .secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .user-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2602,6 +2706,15 @@ td {
     align-items: flex-start;
     flex-direction: row;
     flex-wrap: wrap;
+  }
+
+  .transaction-restriction-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .transaction-restriction-footer button {
+    width: 100%;
   }
 
   .user-detail-metrics {

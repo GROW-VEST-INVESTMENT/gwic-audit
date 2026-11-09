@@ -697,7 +697,10 @@ function UsersPage() {
                   <td data-label="Name"><Link className="user-name-link" to={`/users/${encodeURIComponent(row.id)}`}>{row.name}</Link></td>
                   <td data-label="Email">{row.email}</td>
                   <td data-label="Role">{normalizeRole(row.role)}</td>
-                  <td data-label="Account"><span className={`status-pill ${getStatusTone(row.status)}`}>{row.status || 'Active'}</span></td>
+                  <td data-label="Account">
+                    <span className={`status-pill ${getStatusTone(row.status)}`}>{row.status || 'Active'}</span>
+                    {row.transactionRestricted ? <span className="status-pill danger">Transactions restricted</span> : null}
+                  </td>
                   <td data-label="KYC"><span className={`status-pill ${row.kycVerified ? 'success' : 'warning'}`}>{row.kycVerified ? 'Verified' : 'Not verified'}</span></td>
                   <td data-label="Product">{row.product || '—'}</td>
                 </tr>
@@ -715,6 +718,10 @@ function UserDetailPage() {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [restrictionReason, setRestrictionReason] = useState('');
+  const [restrictionError, setRestrictionError] = useState('');
+  const [restrictionMessage, setRestrictionMessage] = useState('');
+  const [savingRestriction, setSavingRestriction] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -750,6 +757,35 @@ function UserDetailPage() {
 
   const { user, wallet, transactions = [], verificationRequests = [], supportRequests = [], investmentPlans = [], savingsGoals = [] } = detail;
   const latestVerification = verificationRequests[0];
+  const saveTransactionRestriction = async () => {
+    const reason = restrictionReason.trim();
+    if (reason.length < 3 || reason.length > 500) {
+      setRestrictionError('Enter a reason between 3 and 500 characters.');
+      setRestrictionMessage('');
+      return;
+    }
+
+    const restricted = !user.transactionRestricted;
+    const action = restricted ? 'restrict transaction access for' : 'restore transaction access for';
+    if (!window.confirm(`Are you sure you want to ${action} ${user.name}?`)) return;
+
+    setSavingRestriction(true);
+    setRestrictionError('');
+    setRestrictionMessage('');
+    try {
+      const payload = await fetchAdminData(`users/${encodeURIComponent(userId)}/transaction-restriction`, {
+        method: 'PATCH',
+        body: { restricted, reason },
+      });
+      setDetail((current) => ({ ...current, user: { ...current.user, ...payload.user } }));
+      setRestrictionReason('');
+      setRestrictionMessage(payload.message);
+    } catch (actionError) {
+      setRestrictionError(actionError.message || 'Unable to update transaction access.');
+    } finally {
+      setSavingRestriction(false);
+    }
+  };
 
   return (
     <div className="user-detail-page">
@@ -785,6 +821,53 @@ function UserDetailPage() {
           <small>{supportRequests.filter((request) => request.status !== 'resolved').length} open or in progress</small>
         </article>
       </section>
+
+      {user.role === 'user' ? (
+        <section className="panel transaction-access-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Transaction access</h3>
+              <p className="section-note">Temporarily stop new deposits, withdrawals, bank-account changes, and investment actions without locking the customer out of their account.</p>
+            </div>
+            <span className={`status-pill ${user.transactionRestricted ? 'danger' : 'success'}`}>
+              {user.transactionRestricted ? 'Restricted' : 'Available'}
+            </span>
+          </div>
+          {user.transactionRestricted ? (
+            <div className="transaction-restriction-current">
+              <strong>Current restriction reason</strong>
+              <p>{user.transactionRestrictionReason || 'No reason recorded.'}</p>
+              {user.transactionRestrictedAt ? <small>Applied {formatDateTime(user.transactionRestrictedAt)}</small> : null}
+            </div>
+          ) : (
+            <p className="transaction-access-copy">The customer can currently use all available transaction features. A restriction does not cancel existing plans or alter the wallet balance.</p>
+          )}
+          {restrictionError ? <p className="error-banner inline-error" role="alert">{restrictionError}</p> : null}
+          {restrictionMessage ? <p className="success-message" role="status">{restrictionMessage}</p> : null}
+          <label className="transaction-restriction-reason">
+            <span>{user.transactionRestricted ? 'Reason for restoring access' : 'Reason for restriction'}</span>
+            <textarea
+              value={restrictionReason}
+              onChange={(event) => setRestrictionReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Record the operational reason for this change"
+              disabled={savingRestriction}
+            />
+          </label>
+          <div className="transaction-restriction-footer">
+            <small>Every change is recorded in the admin activity log. Existing balances and provider settlement callbacks are preserved; requests already in progress may still complete.</small>
+            <button
+              type="button"
+              className={user.transactionRestricted ? 'secondary-button' : 'transaction-restrict-button'}
+              onClick={saveTransactionRestriction}
+              disabled={savingRestriction || restrictionReason.trim().length < 3}
+            >
+              {savingRestriction ? 'Saving…' : user.transactionRestricted ? 'Restore transactions' : 'Restrict transactions'}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="user-detail-grid">
         <article className="panel user-detail-panel">
@@ -1477,7 +1560,7 @@ function ActivityPage() {
                 <tr key={entry.id}>
                   <td>{formatDateTime(entry.createdAt)}</td>
                   <td>{entry.actor?.name || entry.actor?.email || 'Unknown admin'}</td>
-                  <td>{entry.action === 'kyc.reviewed' ? 'KYC review' : 'Support update'}</td>
+                  <td>{entry.action === 'kyc.reviewed' ? 'KYC review' : entry.action === 'account.transaction_access_updated' ? 'Transaction access' : 'Support update'}</td>
                   <td>{normalizeRole(entry.previousStatus)} → {normalizeRole(entry.nextStatus)}</td>
                   <td>{entry.note}</td>
                 </tr>
