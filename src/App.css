@@ -2872,3 +2872,328 @@ td {
     flex-direction: row;
   }
 }
+
+.admin-app,
+.admin-app * {
+  box-sizing: border-box;
+}
+
+.admin-app {
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.main-panel {
+  flex: 1 1 0%;
+  width: auto;
+  min-width: 0;
+}
+
+.content-area,
+.content-area > *,
+.panel,
+.metric-card,
+.setting-box,
+.summary-box,
+.review-card,
+.user-detail-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.content-area {
+  width: 100%;
+}
+
+.metrics-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metrics-grid > *,
+.panel-grid > *,
+.insight-grid > *,
+.settings-grid > *,
+.wallet-summary-grid > *,
+.user-detail-grid > * {
+  min-width: 0;
+}
+
+.metric-card strong,
+.summary-box strong,
+.user-facts dd,
+.user-profile-heading,
+.user-detail-list-row > *,
+.status-pill,
+.priority-badge {
+  overflow-wrap: anywhere;
+}
+
+.table-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.table-wrap table:not(.user-directory-table),
+.panel > table {
+  width: 100%;
+}
+
+.page-actions,
+.topbar-actions,
+.panel-header,
+.review-card-heading,
+.support-meta {
+  min-width: 0;
+}
+
+.search-field,
+.filter-field {
+  min-width: 0;
+}
+
+@media (max-width: 1250px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-app {
+    display: block;
+  }
+
+  .main-panel {
+    width: 100%;
+    padding: 82px clamp(16px, 3.2vw, 28px) 36px;
+  }
+
+  .topbar {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .topbar > div:first-child {
+    min-width: 0;
+    flex: 1 1 220px;
+  }
+
+  .topbar-actions {
+    flex: 0 1 auto;
+    justify-content: flex-end;
+  }
+
+  .summary-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .panel-header {
+    flex-direction: row;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .main-panel {
+    padding: 72px 14px max(24px, env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+  }
+
+  .topbar > div:first-child,
+  .topbar-actions {
+    width: 100%;
+  }
+
+  .topbar h1 {
+    font-size: clamp(1.45rem, 7vw, 1.8rem);
+    overflow-wrap: anywhere;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
+  }
+
+  .topbar-actions .primary-button,
+  .topbar-actions .secondary-button {
+    min-height: 42px;
+    flex: 1 1 0;
+  }
+
+  .content-area {
+    gap: 14px;
+  }
+
+  .metrics-grid,
+  .wallet-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .metric-card {
+    padding: 14px 12px;
+  }
+
+  .metric-card strong {
+    font-size: clamp(1.15rem, 6vw, 1.55rem);
+  }
+
+  .panel,
+  .user-detail-panel,
+  .review-card {
+    padding: 15px;
+  }
+
+  .panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .panel-header h3 {
+    font-size: 1.08rem;
+  }
+
+  .page-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-actions > *,
+  .page-actions .filter-field,
+  .page-actions .primary-button {
+    width: 100%;
+  }
+
+  .filter-field {
+    min-width: 0;
+  }
+
+  .summary-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .summary-pill {
+    padding: 10px 8px;
+  }
+
+  .summary-pill strong {
+    font-size: clamp(0.9rem, 5vw, 1.1rem);
+  }
+
+  .table-wrap {
+    margin-right: -2px;
+    padding-bottom: 2px;
+  }
+
+  .table-wrap table:not(.user-directory-table),
+  .panel > table {
+    min-width: 580px;
+  }
+
+  .user-directory-table tbody tr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-directory-table tbody td,
+  .user-directory-table tbody td:nth-child(1),
+  .user-directory-table tbody td:nth-child(2) {
+    grid-column: 1;
+  }
+
+  .user-directory-table tbody td {
+    font-size: 0.84rem;
+  }
+
+  .review-details,
+  .detail-grid,
+  .settings-grid,
+  .insight-grid,
+  .user-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .review-card-heading,
+  .review-card-heading > *,
+  .list-item > *,
+  .user-detail-list-row > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .review-card-heading .status-pill,
+  .user-detail-list-row .status-pill {
+    align-self: flex-start;
+  }
+
+  .welcome-actions {
+    align-items: stretch;
+  }
+
+  .welcome-primary,
+  .welcome-secondary {
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    max-width: 100%;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .main-panel {
+    padding-right: 11px;
+    padding-left: 11px;
+  }
+
+  .metrics-grid,
+  .wallet-summary-grid,
+  .summary-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .summary-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .summary-pill span {
+    margin-bottom: 0;
+  }
+
+  .topbar-actions {
+    gap: 8px;
+  }
+
+  .topbar-actions .primary-button,
+  .topbar-actions .secondary-button {
+    padding-right: 8px;
+    padding-left: 8px;
+    font-size: 0.74rem;
+  }
+
+  .user-detail-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
