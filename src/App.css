@@ -2509,6 +2509,111 @@ td {
   cursor: not-allowed;
 }
 
+.account-freeze-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-color: rgba(169, 62, 55, 0.2);
+}
+
+.account-freeze-panel .panel-header {
+  margin-bottom: 0;
+}
+
+.account-freeze-copy {
+  margin: 0;
+  color: #64736a;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.account-freeze-current {
+  padding: 13px 15px;
+  border: 1px solid rgba(164, 52, 48, 0.18);
+  border-radius: 11px;
+  background: #fff8f6;
+}
+
+.account-freeze-current strong {
+  color: #8b3732;
+  font-size: 0.83rem;
+}
+
+.account-freeze-current p {
+  margin: 6px 0;
+  color: #684541;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.account-freeze-current small,
+.account-freeze-footer small {
+  color: #78827a;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.account-freeze-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #354d40;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.account-freeze-reason textarea {
+  width: 100%;
+  min-height: 82px;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid rgba(75, 58, 28, 0.2);
+  border-radius: 9px;
+  background: #fffefa;
+  color: #294438;
+  font: inherit;
+  font-weight: 400;
+}
+
+.account-freeze-reason textarea:focus {
+  outline: 2px solid rgba(169, 62, 55, 0.16);
+  border-color: #a93e37;
+}
+
+.account-freeze-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.account-freeze-button {
+  display: inline-flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  border: 1px solid #a93e37;
+  border-radius: 9px;
+  background: #a93e37;
+  color: white;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.account-freeze-button:hover:not(:disabled) {
+  background: #8f302a;
+}
+
+.account-freeze-button:disabled,
+.account-freeze-panel .secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .user-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2714,6 +2819,15 @@ td {
   }
 
   .transaction-restriction-footer button {
+    width: 100%;
+  }
+
+  .account-freeze-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .account-freeze-footer button {
     width: 100%;
   }
 

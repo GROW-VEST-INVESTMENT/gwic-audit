@@ -722,6 +722,10 @@ function UserDetailPage() {
   const [restrictionError, setRestrictionError] = useState('');
   const [restrictionMessage, setRestrictionMessage] = useState('');
   const [savingRestriction, setSavingRestriction] = useState(false);
+  const [accountStatusReason, setAccountStatusReason] = useState('');
+  const [accountStatusError, setAccountStatusError] = useState('');
+  const [accountStatusMessage, setAccountStatusMessage] = useState('');
+  const [savingAccountStatus, setSavingAccountStatus] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -784,6 +788,35 @@ function UserDetailPage() {
       setRestrictionError(actionError.message || 'Unable to update transaction access.');
     } finally {
       setSavingRestriction(false);
+    }
+  };
+  const saveAccountStatus = async () => {
+    const reason = accountStatusReason.trim();
+    if (reason.length < 3 || reason.length > 500) {
+      setAccountStatusError('Enter a reason between 3 and 500 characters.');
+      setAccountStatusMessage('');
+      return;
+    }
+
+    const suspended = user.status !== 'suspended';
+    const action = suspended ? 'freeze' : 'restore access for';
+    if (!window.confirm(`Are you sure you want to ${action} ${user.name}?`)) return;
+
+    setSavingAccountStatus(true);
+    setAccountStatusError('');
+    setAccountStatusMessage('');
+    try {
+      const payload = await fetchAdminData(`users/${encodeURIComponent(userId)}/account-status`, {
+        method: 'PATCH',
+        body: { status: suspended ? 'suspended' : 'active', reason },
+      });
+      setDetail((current) => ({ ...current, user: { ...current.user, ...payload.user } }));
+      setAccountStatusReason('');
+      setAccountStatusMessage(payload.message);
+    } catch (actionError) {
+      setAccountStatusError(actionError.message || 'Unable to update account access.');
+    } finally {
+      setSavingAccountStatus(false);
     }
   };
 
@@ -864,6 +897,53 @@ function UserDetailPage() {
               disabled={savingRestriction || restrictionReason.trim().length < 3}
             >
               {savingRestriction ? 'Saving…' : user.transactionRestricted ? 'Restore transactions' : 'Restrict transactions'}
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {user.role === 'user' ? (
+        <section className="panel account-freeze-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Account access</h3>
+              <p className="section-note">Freeze blocks sign-in and invalidates existing sessions. It does not change the customer’s balance or cancel existing plans.</p>
+            </div>
+            <span className={`status-pill ${user.status === 'suspended' ? 'danger' : 'success'}`}>
+              {user.status === 'suspended' ? 'Frozen' : 'Access enabled'}
+            </span>
+          </div>
+          {user.status === 'suspended' ? (
+            <div className="account-freeze-current">
+              <strong>Current freeze reason</strong>
+              <p>{user.suspensionReason || 'No reason recorded.'}</p>
+              {user.suspendedAt ? <small>Frozen {formatDateTime(user.suspendedAt)}</small> : null}
+            </div>
+          ) : (
+            <p className="account-freeze-copy">The customer can currently sign in and use their account. Freezing is separate from transaction restrictions.</p>
+          )}
+          {accountStatusError ? <p className="error-banner inline-error" role="alert">{accountStatusError}</p> : null}
+          {accountStatusMessage ? <p className="success-message" role="status">{accountStatusMessage}</p> : null}
+          <label className="account-freeze-reason">
+            <span>{user.status === 'suspended' ? 'Reason for restoring access' : 'Reason for freezing account'}</span>
+            <textarea
+              value={accountStatusReason}
+              onChange={(event) => setAccountStatusReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Record the operational reason for this change"
+              disabled={savingAccountStatus}
+            />
+          </label>
+          <div className="account-freeze-footer">
+            <small>The reason and admin action are recorded in the activity log. Restoring access invalidates prior sessions; the customer must sign in again.</small>
+            <button
+              type="button"
+              className={user.status === 'suspended' ? 'secondary-button' : 'account-freeze-button'}
+              onClick={saveAccountStatus}
+              disabled={savingAccountStatus || accountStatusReason.trim().length < 3}
+            >
+              {savingAccountStatus ? 'Saving…' : user.status === 'suspended' ? 'Restore account access' : 'Freeze account'}
             </button>
           </div>
         </section>
