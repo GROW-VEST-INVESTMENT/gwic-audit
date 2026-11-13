@@ -873,7 +873,7 @@ function UserDetailPage() {
               {user.transactionRestrictedAt ? <small>Applied {formatDateTime(user.transactionRestrictedAt)}</small> : null}
             </div>
           ) : (
-            <p className="transaction-access-copy">The customer can currently use all available transaction features. A restriction does not cancel existing plans or alter the wallet balance.</p>
+            <p className="transaction-access-copy">No transaction restriction is active. Account freezing is managed separately in Account access; restoring transactions does not unfreeze the account.</p>
           )}
           {restrictionError ? <p className="error-banner inline-error" role="alert">{restrictionError}</p> : null}
           {restrictionMessage ? <p className="success-message" role="status">{restrictionMessage}</p> : null}
