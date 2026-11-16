@@ -23,11 +23,12 @@ import {
   X,
 } from 'lucide-react';
 import './App.css';
+import KalmaConnectAdmin from './KalmaConnectAdmin';
 
 const API_BASE = import.meta.env.DEV
-  ? (import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000').replace(/\/+$/, '')
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '')
   : '';
-const ADMIN_ROLES = new Set(['admin', 'super_admin']);
+const ADMIN_ROLES = new Set(['admin', 'super_admin', 'staff']);
 
 const safeJson = async (response) => {
   try {
@@ -218,6 +219,7 @@ function App() {
           <Route path="support" element={<SupportPage />} />
           <Route path="activity" element={<ActivityPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="kalma-connect" element={<KalmaConnectAdmin />} />
         </Route>
         <Route path="*" element={<Navigate to={session ? '/' : '/login'} replace />} />
       </Routes>
@@ -364,7 +366,9 @@ function AdminLayout({ session, onLogout }) {
   const sidebarOpen = sidebarState.pathname === location.pathname && sidebarState.open;
   const closeSidebar = () => setSidebarState({ pathname: location.pathname, open: false });
 
-  const navItems = [
+  const navItems = session.role === 'staff' ? [
+    { to: '/kalma-connect', label: 'Kalma Connect', icon: Users },
+  ] : [
     { to: '/', label: 'Overview', icon: LayoutDashboard },
     { to: '/users', label: 'Users', icon: Users },
     { to: '/kyc', label: 'KYC', icon: ShieldCheck },
@@ -372,6 +376,7 @@ function AdminLayout({ session, onLogout }) {
     { to: '/transactions', label: 'Transactions', icon: Activity },
     { to: '/tiers', label: 'Transaction tiers', icon: SlidersHorizontal },
     { to: '/support', label: 'Support', icon: Ticket },
+    { to: '/kalma-connect', label: 'Kalma Connect', icon: Users },
     { to: '/activity', label: 'Activity log', icon: ClipboardList },
     { to: '/settings', label: 'Settings', icon: Settings2 },
   ];
@@ -454,7 +459,9 @@ function AdminLayout({ session, onLogout }) {
         </header>
 
         <div className="content-area">
-          <Outlet context={session} />
+          {session.role === 'staff' && !location.pathname.startsWith('/kalma-connect')
+            ? <Navigate to="/kalma-connect" replace />
+            : <Outlet context={session} />}
         </div>
       </main>
     </div>
