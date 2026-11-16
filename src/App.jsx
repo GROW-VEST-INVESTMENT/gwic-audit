@@ -17,6 +17,7 @@ import {
   Settings2,
   ShieldCheck,
   Ticket,
+  SlidersHorizontal,
   Users,
   WalletCards,
   X,
@@ -213,6 +214,7 @@ function App() {
           <Route path="kyc" element={<KYCPage />} />
           <Route path="wallets" element={<WalletsPage />} />
           <Route path="transactions" element={<TransactionsPage />} />
+          <Route path="tiers" element={<TransactionTiersPage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="activity" element={<ActivityPage />} />
           <Route path="settings" element={<SettingsPage />} />
@@ -368,6 +370,7 @@ function AdminLayout({ session, onLogout }) {
     { to: '/kyc', label: 'KYC', icon: ShieldCheck },
     { to: '/wallets', label: 'Wallets', icon: WalletCards },
     { to: '/transactions', label: 'Transactions', icon: Activity },
+    { to: '/tiers', label: 'Transaction tiers', icon: SlidersHorizontal },
     { to: '/support', label: 'Support', icon: Ticket },
     { to: '/activity', label: 'Activity log', icon: ClipboardList },
     { to: '/settings', label: 'Settings', icon: Settings2 },
@@ -726,6 +729,11 @@ function UserDetailPage() {
   const [accountStatusError, setAccountStatusError] = useState('');
   const [accountStatusMessage, setAccountStatusMessage] = useState('');
   const [savingAccountStatus, setSavingAccountStatus] = useState(false);
+  const [tierDraft, setTierDraft] = useState('');
+  const [tierReason, setTierReason] = useState('');
+  const [tierError, setTierError] = useState('');
+  const [tierMessage, setTierMessage] = useState('');
+  const [savingTier, setSavingTier] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -817,6 +825,33 @@ function UserDetailPage() {
       setAccountStatusError(actionError.message || 'Unable to update account access.');
     } finally {
       setSavingAccountStatus(false);
+    }
+  };
+  const saveTransactionTier = async () => {
+    const reason = tierReason.trim();
+    const tier = Number(tierDraft || user.transactionTier?.level || 0);
+    if (!Number.isInteger(tier) || tier < 0 || tier > 3 || reason.length < 3 || reason.length > 500) {
+      setTierError('Choose a tier from 0 to 3 and enter a reason between 3 and 500 characters.');
+      setTierMessage('');
+      return;
+    }
+
+    setSavingTier(true);
+    setTierError('');
+    setTierMessage('');
+    try {
+      const payload = await fetchAdminData(`users/${encodeURIComponent(userId)}/transaction-tier`, {
+        method: 'PATCH',
+        body: { tier, reason },
+      });
+      setDetail((current) => ({ ...current, user: { ...current.user, ...payload.user } }));
+      setTierDraft(String(tier));
+      setTierReason('');
+      setTierMessage(payload.message || 'Customer transaction tier updated.');
+    } catch (saveError) {
+      setTierError(saveError.message || 'Unable to update this customer’s transaction tier.');
+    } finally {
+      setSavingTier(false);
     }
   };
 
@@ -944,6 +979,57 @@ function UserDetailPage() {
               disabled={savingAccountStatus || accountStatusReason.trim().length < 3}
             >
               {savingAccountStatus ? 'Saving…' : user.status === 'suspended' ? 'Restore account access' : 'Freeze account'}
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {user.role === 'user' ? (
+        <section className="panel tier-assignment-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Transaction tier</h3>
+              <p className="section-note">Tier assignment is separate from changing the shared tier-limit policy. Verified tiers require approved KYC.</p>
+            </div>
+            <span className="status-pill neutral">
+              Tier {user.transactionTier?.level ?? (user.kycVerified ? 2 : 0)} · {user.transactionTier?.name || (user.kycVerified ? 'Fully verified' : 'Unverified')}
+            </span>
+          </div>
+          {user.transactionTierUpdateReason ? (
+            <p className="tier-assignment-current">Last change: {user.transactionTierUpdateReason}</p>
+          ) : null}
+          {!user.kycVerified ? (
+            <p className="tier-permission-note">This customer has not completed approved KYC. Only Tier 0 can be assigned.</p>
+          ) : null}
+          {tierError ? <p className="error-banner inline-error" role="alert">{tierError}</p> : null}
+          {tierMessage ? <p className="success-message" role="status">{tierMessage}</p> : null}
+          <div className="tier-assignment-form">
+            <label className="filter-field">
+              <span>Assign tier</span>
+              <select
+                value={tierDraft || String(user.transactionTier?.level ?? (user.kycVerified ? 2 : 0))}
+                onChange={(event) => setTierDraft(event.target.value)}
+                disabled={savingTier}
+              >
+                <option value="0">Tier 0 — Unverified</option>
+                <option value="1" disabled={!user.kycVerified}>Tier 1 — Basic verified</option>
+                <option value="2" disabled={!user.kycVerified}>Tier 2 — Fully verified</option>
+                <option value="3" disabled={!user.kycVerified}>Tier 3 — Enhanced verification</option>
+              </select>
+            </label>
+            <label className="field-wrap">
+              <span className="field-label"><strong>Reason for tier assignment</strong></span>
+              <textarea
+                value={tierReason}
+                onChange={(event) => setTierReason(event.target.value)}
+                maxLength={500}
+                rows={2}
+                placeholder="Record the verification or exception rationale"
+                disabled={savingTier}
+              />
+            </label>
+            <button type="button" className="primary-button" onClick={saveTransactionTier} disabled={savingTier || tierReason.trim().length < 3}>
+              {savingTier ? 'Saving…' : 'Save customer tier'}
             </button>
           </div>
         </section>
@@ -1596,6 +1682,281 @@ function SupportPage() {
   );
 }
 
+function TransactionTiersPage() {
+  const session = useOutletContext();
+  const [tiers, setTiers] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [policyReason, setPolicyReason] = useState('');
+  const [reviewReasons, setReviewReasons] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [pendingReference, setPendingReference] = useState('');
+  const isSuperAdmin = session?.role === 'super_admin';
+
+  const loadTierOperations = async () => {
+    const [policy, depositReviews] = await Promise.all([
+      fetchAdminData('operations/transaction-tiers'),
+      fetchAdminData('operations/deposit-reviews'),
+    ]);
+    setTiers(policy.tiers || []);
+    setReviews(depositReviews.transactions || []);
+  };
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      fetchAdminData('operations/transaction-tiers'),
+      fetchAdminData('operations/deposit-reviews'),
+    ])
+      .then(([policy, depositReviews]) => {
+        if (active) {
+          setTiers(policy.tiers || []);
+          setReviews(depositReviews.transactions || []);
+        }
+      })
+      .catch((fetchError) => {
+        if (active) setError(fetchError.message || 'Unable to load transaction tier operations.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const updateLimit = (tierLevel, operation, limitName, value) => {
+    const parsedValue = value === '' ? 0 : Number(value);
+    setTiers((current) => current.map((tier) => (
+      tier.level === tierLevel
+        ? { ...tier, [operation]: { ...tier[operation], [limitName]: parsedValue } }
+        : tier
+    )));
+  };
+
+  const savePolicy = async (event) => {
+    event.preventDefault();
+    const reason = policyReason.trim();
+    if (reason.length < 3 || reason.length > 500) {
+      setError('Enter a policy-change reason between 3 and 500 characters.');
+      return;
+    }
+    setSavingPolicy(true);
+    setError('');
+    setMessage('');
+    try {
+      const payload = await fetchAdminData('operations/transaction-tiers', {
+        method: 'PUT',
+        body: { tiers, reason },
+      });
+      setTiers(payload.tiers || []);
+      setPolicyReason('');
+      setMessage('Transaction tier limits saved and recorded in the activity log.');
+    } catch (saveError) {
+      setError(saveError.message || 'Unable to save transaction tier limits.');
+    } finally {
+      setSavingPolicy(false);
+    }
+  };
+
+  const reviewDeposit = async (transaction, decision) => {
+    const reason = (reviewReasons[transaction.reference] || '').trim();
+    if (reason.length < 3 || reason.length > 500) {
+      setError('Enter a review reason between 3 and 500 characters before deciding.');
+      setMessage('');
+      return;
+    }
+    const action = decision === 'release' ? 'release these funds to the customer wallet' : 'request a refund';
+    if (!window.confirm(`Are you sure you want to ${action} for ${formatCurrency(transaction.amount)}?`)) return;
+
+    setPendingReference(transaction.reference);
+    setError('');
+    setMessage('');
+    try {
+      const payload = await fetchAdminData(
+        `operations/deposit-reviews/${encodeURIComponent(transaction.reference)}`,
+        { method: 'PATCH', body: { decision, reason } },
+      );
+      setMessage(payload.message || (decision === 'release'
+        ? 'Deposit released to the customer wallet.'
+        : 'Refund request submitted to the payment provider.'));
+      setReviewReasons((current) => ({ ...current, [transaction.reference]: '' }));
+      await loadTierOperations();
+    } catch (reviewError) {
+      setError(reviewError.message || 'Unable to process this held deposit.');
+    } finally {
+      setPendingReference('');
+    }
+  };
+
+  if (loading) return <div className="state-box">Loading transaction tier operations…</div>;
+
+  return (
+    <div className="tier-operations">
+      {error ? <div className="error-banner inline-error" role="alert">{error}</div> : null}
+      {message ? <p className="success-message" role="status">{message}</p> : null}
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h3>Tier limits</h3>
+            <p className="section-note">Amounts are in Nigerian naira. Limits are per transaction, UTC day, and UTC month.</p>
+          </div>
+          <span className="status-pill neutral">{isSuperAdmin ? 'Super admin controls' : 'Read only'}</span>
+        </div>
+        {!isSuperAdmin ? (
+          <p className="tier-permission-note">Only a super admin can change tier limits. Ask a super admin to make policy updates.</p>
+        ) : null}
+        <form onSubmit={savePolicy}>
+          <div className="tier-policy-grid">
+            {tiers.map((tier) => (
+              <article className="tier-policy-card" key={tier.level}>
+                <div className="tier-policy-heading">
+                  <div><span>Tier {tier.level}</span><h4>{tier.name}</h4></div>
+                  {tier.level === 0 ? <span className="status-pill warning">Unverified</span> : null}
+                </div>
+                {['deposit', 'withdrawal'].map((operation) => (
+                  <fieldset className="tier-limit-fields" key={operation} disabled={!isSuperAdmin || savingPolicy}>
+                    <legend>{operation === 'deposit' ? 'Deposits' : 'Withdrawals'}</legend>
+                    {[
+                      ['perTransaction', 'Per transaction'],
+                      ['perDay', 'Per day'],
+                      ['perMonth', 'Per month'],
+                    ].map(([limitName, label]) => (
+                      <label key={limitName}>
+                        <span>{label}</span>
+                        <div className="tier-money-input">
+                          <span>₦</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100000000"
+                            step="1"
+                            value={tier[operation][limitName]}
+                            onChange={(event) => updateLimit(tier.level, operation, limitName, event.target.value)}
+                            disabled={tier.level === 0 && operation === 'withdrawal'}
+                            required
+                          />
+                        </div>
+                      </label>
+                    ))}
+                  </fieldset>
+                ))}
+              </article>
+            ))}
+          </div>
+          {isSuperAdmin ? (
+            <div className="tier-policy-footer">
+              <label className="field-wrap">
+                <span className="field-label"><strong>Reason for policy change</strong></span>
+                <textarea
+                  value={policyReason}
+                  onChange={(event) => setPolicyReason(event.target.value)}
+                  minLength={3}
+                  maxLength={500}
+                  rows={2}
+                  required
+                  placeholder="Explain why these limits are changing"
+                  disabled={savingPolicy}
+                />
+              </label>
+              <button type="submit" className="primary-button" disabled={savingPolicy || policyReason.trim().length < 3}>
+                {savingPolicy ? 'Saving…' : 'Save tier limits'}
+              </button>
+            </div>
+          ) : null}
+        </form>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h3>Held deposits</h3>
+            <p className="section-note">Provider-confirmed deposits above a customer’s tier limit stay out of the spendable wallet until review.</p>
+          </div>
+          <span className="status-pill warning">{reviews.length} awaiting review</span>
+        </div>
+        {reviews.length ? (
+          <div className="review-list">
+            {reviews.map((transaction) => (
+              <article className="review-card tier-review-card" key={transaction.reference}>
+                <div className="review-card-heading">
+                  <div>
+                    <h4>{formatCurrency(transaction.amount)} · {transaction.user}</h4>
+                    <p>{transaction.email} · {transaction.reference}</p>
+                  </div>
+                  <span className={`status-pill ${transaction.refundStatus === 'failed' ? 'danger' : 'warning'}`}>
+                    {transaction.refundStatus === 'unknown'
+                      ? 'Refund status unknown'
+                      : transaction.refundStatus === 'pending' || transaction.refundStatus === 'requested'
+                        ? 'Refund processing'
+                        : transaction.refundStatus === 'failed'
+                          ? 'Refund failed'
+                          : 'Held'}
+                  </span>
+                </div>
+                <div className="tier-review-meta">
+                  <span>Started {formatDateTime(transaction.createdAt)}</span>
+                  <span>Tier at initiation: {transaction.tierAtInitiation ?? 'Not recorded'}</span>
+                </div>
+                <p className="tier-review-reason">{transaction.reason}</p>
+                <label className="field-wrap">
+                  <span className="field-label"><strong>Review reason</strong></span>
+                  <textarea
+                    value={reviewReasons[transaction.reference] || ''}
+                    onChange={(event) => setReviewReasons((current) => ({ ...current, [transaction.reference]: event.target.value }))}
+                    maxLength={500}
+                    rows={2}
+                    placeholder="Record why this deposit is being released or refunded"
+                    disabled={pendingReference === transaction.reference}
+                  />
+                </label>
+                {transaction.refundStatus
+                  && transaction.refundStatus !== 'none'
+                  && transaction.refundStatus !== 'failed' ? (
+                  <p className="tier-review-state" role="status">
+                    {transaction.refundStatus === 'unknown'
+                      ? 'The payment provider response was inconclusive. Confirm the refund status with the provider before taking further action; these funds remain unavailable.'
+                      : 'A refund has been requested. The deposit remains unavailable until the provider confirms the outcome.'}
+                  </p>
+                ) : (
+                  <>
+                    {transaction.refundStatus === 'failed' ? (
+                      <p className="tier-review-state" role="status">
+                        The provider reported a failed refund. Confirm the provider-side status, then decide whether to release the verified deposit or retry the refund.
+                      </p>
+                    ) : null}
+                    <div className="tier-review-actions">
+                      <button
+                        type="button"
+                        className="primary-button"
+                        disabled={pendingReference === transaction.reference}
+                        onClick={() => reviewDeposit(transaction, 'release')}
+                      >
+                        {pendingReference === transaction.reference ? 'Processing…' : 'Release to wallet'}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={pendingReference === transaction.reference}
+                        onClick={() => reviewDeposit(transaction, 'refund')}
+                      >
+                        {transaction.refundStatus === 'failed' ? 'Retry refund request' : 'Request refund'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </article>
+            ))}
+          </div>
+        ) : <div className="empty-state">There are no deposits waiting for review.</div>}
+      </section>
+    </div>
+  );
+}
+
 function ActivityPage() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1640,7 +2001,19 @@ function ActivityPage() {
                 <tr key={entry.id}>
                   <td>{formatDateTime(entry.createdAt)}</td>
                   <td>{entry.actor?.name || entry.actor?.email || 'Unknown admin'}</td>
-                  <td>{entry.action === 'kyc.reviewed' ? 'KYC review' : entry.action === 'account.transaction_access_updated' ? 'Transaction access' : 'Support update'}</td>
+                  <td>{
+                    entry.action === 'kyc.reviewed'
+                      ? 'KYC review'
+                      : entry.action === 'account.transaction_access_updated'
+                        ? 'Transaction access'
+                        : entry.action === 'account.tier_updated'
+                          ? 'Customer transaction tier'
+                          : entry.action === 'transaction_tier.policy_updated'
+                            ? 'Transaction tier policy'
+                            : entry.action === 'transaction.deposit_reviewed'
+                              ? 'Held deposit review'
+                              : 'Support update'
+                  }</td>
                   <td>{normalizeRole(entry.previousStatus)} → {normalizeRole(entry.nextStatus)}</td>
                   <td>{entry.note}</td>
                 </tr>

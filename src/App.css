@@ -3197,3 +3197,179 @@ td {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.tier-operations {
+  display: grid;
+  gap: 18px;
+}
+
+.tier-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.tier-policy-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border, #e4e9e5);
+  border-radius: 16px;
+  background: #fbfcfb;
+}
+
+.tier-policy-heading,
+.tier-review-actions,
+.tier-review-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tier-policy-heading > div > span {
+  color: #64736a;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tier-policy-heading h4 {
+  margin: 4px 0 0;
+}
+
+.tier-limit-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.tier-limit-fields legend {
+  margin-bottom: 9px;
+  color: #26342b;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.tier-limit-fields label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: #65736a;
+  font-size: 0.7rem;
+}
+
+.tier-money-input {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-left: 8px;
+  border: 1px solid #dfe6e0;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.tier-money-input > span {
+  color: #64736a;
+  font-size: 0.75rem;
+}
+
+.tier-money-input input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 6px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 0.78rem;
+}
+
+.tier-policy-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  margin-top: 17px;
+}
+
+.tier-permission-note,
+.tier-assignment-current {
+  margin: 12px 0 0;
+  color: #65736a;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.tier-review-card {
+  display: grid;
+  gap: 12px;
+}
+
+.tier-review-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  color: #65736a;
+  font-size: 0.75rem;
+}
+
+.tier-review-reason {
+  margin: 0;
+  color: #34443a;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.tier-review-state {
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid #efdfb7;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #70551c;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.tier-review-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.tier-assignment-form {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.7fr) minmax(260px, 1.3fr) auto;
+  align-items: end;
+  gap: 14px;
+  margin-top: 15px;
+}
+
+.tier-assignment-form .field-wrap {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .tier-policy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tier-assignment-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tier-policy-footer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .tier-limit-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tier-review-actions > button {
+    width: 100%;
+  }
+}
