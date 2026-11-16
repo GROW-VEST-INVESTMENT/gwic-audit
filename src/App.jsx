@@ -1001,6 +1001,7 @@ function UserDetailPage() {
           {!user.kycVerified ? (
             <p className="tier-permission-note">This customer has not completed approved KYC. Only Tier 0 can be assigned.</p>
           ) : null}
+          <p className="tier-permission-note">Tier increases must be approved through the KYC review queue. This control can only keep or lower the customer’s current tier.</p>
           {tierError ? <p className="error-banner inline-error" role="alert">{tierError}</p> : null}
           {tierMessage ? <p className="success-message" role="status">{tierMessage}</p> : null}
           <div className="tier-assignment-form">
@@ -1012,9 +1013,9 @@ function UserDetailPage() {
                 disabled={savingTier}
               >
                 <option value="0">Tier 0 — Unverified</option>
-                <option value="1" disabled={!user.kycVerified}>Tier 1 — Basic verified</option>
-                <option value="2" disabled={!user.kycVerified}>Tier 2 — Fully verified</option>
-                <option value="3" disabled={!user.kycVerified}>Tier 3 — Enhanced verification</option>
+                <option value="1" disabled={!user.kycVerified || 1 > (user.transactionTier?.level ?? (user.kycVerified ? 2 : 0))}>Tier 1 — Basic verified</option>
+                <option value="2" disabled={!user.kycVerified || 2 > (user.transactionTier?.level ?? (user.kycVerified ? 2 : 0))}>Tier 2 — Fully verified</option>
+                <option value="3" disabled={!user.kycVerified || 3 > (user.transactionTier?.level ?? (user.kycVerified ? 2 : 0))}>Tier 3 — Enhanced verification</option>
               </select>
             </label>
             <label className="field-wrap">
@@ -1029,7 +1030,7 @@ function UserDetailPage() {
               />
             </label>
             <button type="button" className="primary-button" onClick={saveTransactionTier} disabled={savingTier || tierReason.trim().length < 3}>
-              {savingTier ? 'Saving…' : 'Save customer tier'}
+              {savingTier ? 'Saving…' : 'Save tier adjustment'}
             </button>
           </div>
         </section>
@@ -1136,12 +1137,16 @@ function UserDetailPage() {
 }
 
 function KYCPage() {
+  const session = useOutletContext();
   const [requests, setRequests] = useState([]);
   const [stats, setStats] = useState({ pending: 0, verified: 0, rejected: 0 });
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('pending');
   const [reviewNotes, setReviewNotes] = useState({});
   const [evidenceChecks, setEvidenceChecks] = useState({});
+  const [verificationChecks, setVerificationChecks] = useState({});
+  const [verificationProviders, setVerificationProviders] = useState({});
+  const [verificationReferences, setVerificationReferences] = useState({});
   const [pendingActionId, setPendingActionId] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -1171,13 +1176,28 @@ function KYCPage() {
 
   const handleReview = async (request, decision) => {
     const note = (reviewNotes[request.id] || '').trim();
-    if (!evidenceChecks[request.id]) {
-      setError('Confirm that you reviewed evidence using the approved verification process.');
-      return;
-    }
     if (note.length < 3) {
       setError('Add a reviewer note of at least 3 characters before saving.');
       return;
+    }
+    const checks = verificationChecks[request.id] || {};
+    const provider = (verificationProviders[request.id] || '').trim();
+    const reference = (verificationReferences[request.id] || '').trim();
+    if (decision === 'verified') {
+      if (!evidenceChecks[request.id]) {
+        setError('Confirm that you reviewed evidence using the approved verification process.');
+        return;
+      }
+      if (!provider || reference.length < 3 || !checks.identity
+        || (request.requestedTier >= 2 && !checks.address)
+        || (request.requestedTier >= 3 && !checks.sourceOfFunds)) {
+        setError('Enter the provider and reference, then confirm every check required for this tier.');
+        return;
+      }
+      if (request.requestedTier === 3 && session?.role !== 'super_admin') {
+        setError('Only a super admin can approve Tier 3 enhanced verification.');
+        return;
+      }
     }
 
     setPendingActionId(request.id);
@@ -1186,11 +1206,23 @@ function KYCPage() {
     try {
       const payload = await fetchAdminData(`operations/verification-requests/${encodeURIComponent(request.id)}`, {
         method: 'PATCH',
-        body: { decision, note, evidenceReviewed: true },
+        body: {
+          decision,
+          note,
+          evidenceReviewed: decision === 'verified' && !!evidenceChecks[request.id],
+          verificationProvider: provider,
+          verificationReference: reference,
+          identityCheckConfirmed: !!checks.identity,
+          addressCheckConfirmed: !!checks.address,
+          sourceOfFundsCheckConfirmed: !!checks.sourceOfFunds,
+        },
       });
       setMessage(`Verification request ${decision}.`);
       setReviewNotes((current) => ({ ...current, [request.id]: '' }));
       setEvidenceChecks((current) => ({ ...current, [request.id]: false }));
+      setVerificationChecks((current) => ({ ...current, [request.id]: {} }));
+      setVerificationProviders((current) => ({ ...current, [request.id]: '' }));
+      setVerificationReferences((current) => ({ ...current, [request.id]: '' }));
       setRequests((current) => (
         status === 'pending'
           ? current.filter((item) => item.id !== request.id)
@@ -1233,7 +1265,7 @@ function KYCPage() {
       {error ? <div className="error-banner inline-error" role="alert">{error}</div> : null}
       {message ? <p className="success-message" role="status">{message}</p> : null}
       <p className="review-disclaimer">
-        Before deciding, verify identity evidence through your approved secure process. Do not approve based only on the name and date of birth shown here.
+        Before approving, verify the checks through your approved secure provider and record its name and reference. This queue does not run BVN/NIN checks or store identity documents; the displayed name and date of birth are not proof of identity.
       </p>
 
       <div className="summary-strip">
@@ -1257,7 +1289,7 @@ function KYCPage() {
             <article key={request.id} className="review-card">
               <div className="review-card-heading">
                 <div>
-                  <h4>{request.legalName}</h4>
+                  <h4>{request.legalName} · Tier {request.requestedTier || 1} request</h4>
                   <p>{request.user?.email || 'Account unavailable'} · Submitted {formatDate(request.createdAt)}</p>
                 </div>
                 <span className={`status-pill ${getStatusTone(request.status)}`}>{normalizeRole(request.status)}</span>
@@ -1266,6 +1298,15 @@ function KYCPage() {
                 <div><dt>Account name</dt><dd>{request.user?.name || '—'}</dd></div>
                 <div><dt>Date of birth</dt><dd>{formatDate(request.dateOfBirth)}</dd></div>
                 <div><dt>Phone</dt><dd>{request.user?.phone || '—'}</dd></div>
+                <div><dt>Current tier</dt><dd>Tier {request.currentTier ?? 0}</dd></div>
+                {request.requestedTier >= 2 ? <>
+                  <div><dt>Residential address</dt><dd>{request.addressLine || '—'}</dd></div>
+                  <div><dt>City / state</dt><dd>{[request.city, request.state].filter(Boolean).join(', ') || '—'}</dd></div>
+                </> : null}
+                {request.requestedTier >= 3 ? <>
+                  <div><dt>Occupation</dt><dd>{request.occupation || '—'}</dd></div>
+                  <div><dt>Source of funds</dt><dd>{(request.sourceOfFundsCategory || '—').replaceAll('_', ' ')}</dd></div>
+                </> : null}
               </dl>
               {request.status === 'pending' ? (
                 <div className="review-form">
@@ -1279,22 +1320,60 @@ function KYCPage() {
                       onChange={(event) => setReviewNotes((current) => ({ ...current, [request.id]: event.target.value }))}
                     />
                   </label>
-                  <label className="evidence-confirmation">
+                  <label className="field-wrap">
+                    <span className="field-label"><strong>Approved verification provider</strong></span>
                     <input
-                      type="checkbox"
-                      checked={!!evidenceChecks[request.id]}
-                      onChange={(event) => setEvidenceChecks((current) => ({ ...current, [request.id]: event.target.checked }))}
+                      value={verificationProviders[request.id] || ''}
+                      maxLength={100}
+                      placeholder="Provider or secure review channel"
+                      onChange={(event) => setVerificationProviders((current) => ({ ...current, [request.id]: event.target.value }))}
                     />
-                    <span>I reviewed the evidence using the approved verification process.</span>
                   </label>
+                  <label className="field-wrap">
+                    <span className="field-label"><strong>Provider reference</strong></span>
+                    <input
+                      value={verificationReferences[request.id] || ''}
+                      maxLength={120}
+                      placeholder="Non-sensitive verification reference"
+                      onChange={(event) => setVerificationReferences((current) => ({ ...current, [request.id]: event.target.value }))}
+                    />
+                  </label>
+                  <div className="verification-checks">
+                    {[
+                      { key: 'identity', label: 'Identity check completed', required: true },
+                      { key: 'address', label: 'Address and required liveness checks completed', required: request.requestedTier >= 2 },
+                      { key: 'sourceOfFunds', label: 'Occupation and source-of-funds checks completed', required: request.requestedTier >= 3 },
+                    ].filter((check) => check.required).map((check) => (
+                      <label className="evidence-confirmation" key={check.key}>
+                        <input
+                          type="checkbox"
+                          checked={!!(verificationChecks[request.id] || {})[check.key]}
+                          onChange={(event) => setVerificationChecks((current) => ({
+                            ...current,
+                            [request.id]: { ...(current[request.id] || {}), [check.key]: event.target.checked },
+                          }))}
+                        />
+                        <span>{check.label}</span>
+                      </label>
+                    ))}
+                    <label className="evidence-confirmation">
+                      <input
+                        type="checkbox"
+                        checked={!!evidenceChecks[request.id]}
+                        onChange={(event) => setEvidenceChecks((current) => ({ ...current, [request.id]: event.target.checked }))}
+                      />
+                      <span>I reviewed evidence through the approved secure process.</span>
+                    </label>
+                  </div>
+                  <p className="review-disclaimer">Tier approval updates the customer’s transaction limits immediately.</p>
                   <div className="page-actions">
                     <button
                       type="button"
                       className="primary-button"
-                      disabled={pendingActionId === request.id}
+                      disabled={pendingActionId === request.id || (request.requestedTier === 3 && session?.role !== 'super_admin')}
                       onClick={() => handleReview(request, 'verified')}
                     >
-                      {pendingActionId === request.id ? 'Saving…' : 'Mark verified'}
+                      {pendingActionId === request.id ? 'Saving…' : request.requestedTier === 3 && session?.role !== 'super_admin' ? 'Super admin required' : 'Approve tier'}
                     </button>
                     <button
                       type="button"
