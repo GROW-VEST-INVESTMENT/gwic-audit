@@ -112,3 +112,26 @@
   .connect-overview-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .connect-overview-heading { align-items: flex-start; flex-direction: column; }
 }
+
+.connect-document-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
+.connect-document-list a { color: #397359; font-size: 9px; font-weight: 700; text-decoration: none; }
+.connect-document-list a:hover { text-decoration: underline; }
+.connect-opportunities { padding-bottom: 0; }
+.connect-opportunity-form { display: grid; gap: 15px; margin: 16px; padding: 17px; border: 1px solid #e3ebe4; border-radius: 7px; background: #fafcfb; }
+.connect-opportunity-form-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.connect-opportunity-form-heading .connect-kicker { margin-bottom: 4px; }
+.connect-opportunity-form-heading h4 { margin: 0; color: #2e4035; font-size: 15px; }
+.connect-opportunity-form-heading > button { display: grid; place-items: center; width: 27px; height: 27px; border: 1px solid #e4e9e4; border-radius: 50%; color: #758279; background: #fff; }
+.connect-opportunity-fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.connect-opportunity-fields > label { display: grid; gap: 6px; color: #536157; font-size: 10px; font-weight: 600; }
+.connect-opportunity-fields > label.wide { grid-column: 1 / -1; }
+.connect-opportunity-fields input, .connect-opportunity-fields textarea, .connect-opportunity-fields select { width: 100%; min-height: 34px; padding: 8px 10px; border: 1px solid #e4e9e4; border-radius: 5px; outline: 0; color: #45554a; background: #fff; font: inherit; font-size: 10px; }
+.connect-opportunity-fields textarea { resize: vertical; line-height: 1.55; }
+.connect-opportunity-fields input:focus, .connect-opportunity-fields textarea:focus, .connect-opportunity-fields select:focus { border-color: #75a386; box-shadow: 0 0 0 2px rgba(61,131,84,.08); }
+.connect-opportunities > .connect-records { border-top: 1px solid #edf0ed; }
+
+@media (max-width: 720px) {
+  .connect-opportunity-fields { grid-template-columns: 1fr; }
+  .connect-opportunity-fields > label.wide { grid-column: auto; }
+  .connect-opportunity-form { margin: 11px; padding: 13px; }
+}

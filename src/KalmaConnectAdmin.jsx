@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, BarChart3, Check, Clock3, RefreshCw, Search, ShieldCheck, Users, WalletCards, X } from 'lucide-react';
+import { Activity, BarChart3, BriefcaseBusiness, Check, Clock3, Plus, RefreshCw, Search, ShieldCheck, Users, WalletCards, X } from 'lucide-react';
 import './KalmaConnectAdmin.css';
 
 const API_BASE = import.meta.env.DEV
@@ -8,6 +8,7 @@ const API_BASE = import.meta.env.DEV
 const tabs = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'applications', label: 'Applications', icon: Users },
+  { id: 'opportunities', label: 'Opportunities', icon: BriefcaseBusiness },
   { id: 'partners', label: 'Partners', icon: ShieldCheck },
   { id: 'commissions', label: 'Earnings', icon: Clock3 },
   { id: 'payouts', label: 'Withdrawals', icon: WalletCards },
@@ -163,6 +164,27 @@ export default function KalmaConnectAdmin() {
     }
   };
 
+  const saveOpportunity = async (opportunity, opportunityId) => {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await api(opportunityId ? `opportunities/${opportunityId}` : 'opportunities', {
+        method: opportunityId ? 'PATCH' : 'POST',
+        body: opportunity,
+      });
+      setNotice(opportunityId ? 'Opportunity updated.' : 'Opportunity saved.');
+      setLoading(true);
+      setReloadToken((current) => current + 1);
+      return true;
+    } catch (reason) {
+      setError(reason.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const visibleRows = rows.filter((row) => {
     const text = [
       row.userId?.name,
@@ -202,6 +224,8 @@ export default function KalmaConnectAdmin() {
         ? <OverviewPanel summary={overview} loading={loading} />
         : activeTab === 'policy'
           ? <PolicyPanel policy={policy} loading={loading} busy={busy} onSubmit={savePolicy} />
+          : activeTab === 'opportunities'
+            ? <OpportunityPanel opportunities={rows} loading={loading} busy={busy} onSave={saveOpportunity} />
         : <section className="connect-panel">
           <div className="connect-panel-toolbar">
             <div><h3>{tabs.find((tab) => tab.id === activeTab)?.label}</h3><span>{loading ? 'Loading…' : `${visibleRows.length} records`}</span></div>
@@ -272,10 +296,16 @@ function ApplicationRecord({ row, openDecision, busy }) {
         <div className="connect-record-content">
           <div className="connect-record-title"><strong>{row.userId?.name || 'Applicant'}</strong><Status status={row.status} /></div>
           <span>{row.userId?.email} {row.userId?.phone ? `· ${row.userId.phone}` : ''}</span>
-          <p>{row.type === 'partner' ? 'Connect Partner' : row.roleInterest || 'Applicant'} · Submitted {formatDate(row.createdAt)}</p>
+          <p>{row.opportunityId?.title || (row.type === 'partner' ? 'Connect Partner' : row.roleInterest || 'Applicant')} · Submitted {formatDate(row.createdAt)}</p>
           {row.motivation && <details><summary>Read motivation</summary><p>{row.motivation}</p></details>}
           {row.experience && <p className="connect-note">Experience: {row.experience}</p>}
           {!!row.promotionChannels?.length && <p className="connect-note">Channels: {row.promotionChannels.join(', ').replaceAll('_', ' ')}</p>}
+          {!!row.documents?.length && <div className="connect-document-list">{row.documents.map((document) => <a
+            key={document._id}
+            href={`${API_BASE}/api/admin/connect/applications/${row._id}/documents/${document._id}`}
+            target="_blank"
+            rel="noreferrer"
+          >Download {document.name}</a>)}</div>}
           {row.reviewNote && <p className="connect-note">Review note: {row.reviewNote}</p>}
         </div>
       </div>
@@ -289,6 +319,93 @@ function ApplicationRecord({ row, openDecision, busy }) {
       </div>
     </article>
   );
+}
+
+function OpportunityPanel({ opportunities, loading, busy, onSave }) {
+  const [editing, setEditing] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const emptyOpportunity = {
+    title: '',
+    summary: '',
+    description: '',
+    type: 'role',
+    requirements: '',
+    benefits: '',
+    positionsAvailable: 1,
+    maximumApplications: 150,
+    deadline: '',
+    status: 'draft',
+  };
+  const [form, setForm] = useState(emptyOpportunity);
+  const openNew = () => {
+    setForm(emptyOpportunity);
+    setEditing(null);
+    setShowForm(true);
+  };
+  const edit = (opportunity) => {
+    setForm({
+      title: opportunity.title,
+      summary: opportunity.summary,
+      description: opportunity.description,
+      type: opportunity.type,
+      requirements: opportunity.requirements || '',
+      benefits: opportunity.benefits || '',
+      positionsAvailable: opportunity.positionsAvailable,
+      maximumApplications: opportunity.maximumApplications,
+      deadline: opportunity.deadline ? new Date(opportunity.deadline).toISOString().slice(0, 10) : '',
+      status: opportunity.status,
+    });
+    setEditing(opportunity.id);
+    setShowForm(true);
+  };
+  const setField = (field) => (event) => {
+    const value = event.target.value;
+    setForm((current) => ({
+      ...current,
+      [field]: ['positionsAvailable', 'maximumApplications'].includes(field) ? Number(value) : value,
+      ...(field === 'type' && value === 'announcement' ? { positionsAvailable: 0, maximumApplications: 0 } : {}),
+      ...(field === 'type' && value !== 'announcement' && current.type === 'announcement' ? { positionsAvailable: 1, maximumApplications: 150 } : {}),
+    }));
+  };
+  const submit = async (event) => {
+    event.preventDefault();
+    if (await onSave({ ...form, deadline: form.deadline || null }, editing)) setShowForm(false);
+  };
+  return <section className="connect-panel connect-opportunities">
+    <div className="connect-panel-toolbar">
+      <div><h3>Opportunity feed</h3><span>{loading ? 'Loading…' : `${opportunities.length} published and draft posts`}</span></div>
+      <button type="button" className="connect-button" onClick={openNew}><Plus size={15} /> Create opportunity</button>
+    </div>
+    {showForm && <form className="connect-opportunity-form" onSubmit={submit}>
+      <div className="connect-opportunity-form-heading"><div><p className="connect-kicker">STAFF PUBLISHED CONTENT</p><h4>{editing ? 'Edit opportunity' : 'Create opportunity'}</h4></div><button type="button" aria-label="Close opportunity form" onClick={() => setShowForm(false)}><X size={16} /></button></div>
+      <div className="connect-opportunity-fields">
+        <label>Post type<select required value={form.type} onChange={setField('type')}><option value="role">Career opportunity</option><option value="partner">Partner program</option><option value="announcement">Announcement</option></select></label>
+        <label>Publication status<select required value={form.status} onChange={setField('status')}><option value="draft">Draft</option><option value="open">Publish now</option><option value="closed">Closed</option></select></label>
+        <label>Title<input required minLength={5} maxLength={120} value={form.title} onChange={setField('title')} /></label>
+        <label>Short summary<input required minLength={10} maxLength={240} value={form.summary} onChange={setField('summary')} /></label>
+        <label className="wide">Description<textarea required minLength={30} maxLength={6000} rows="5" value={form.description} onChange={setField('description')} /></label>
+        <label>Requirements<textarea maxLength={3000} rows="4" value={form.requirements} onChange={setField('requirements')} /></label>
+        <label>Benefits<textarea maxLength={3000} rows="4" value={form.benefits} onChange={setField('benefits')} /></label>
+        {form.type !== 'announcement' && <>
+          <label>Positions available<input type="number" required min="1" max="10000" value={form.positionsAvailable} onChange={setField('positionsAvailable')} /></label>
+          <label>Maximum applications<input type="number" required min={form.positionsAvailable} max="1000000" value={form.maximumApplications} onChange={setField('maximumApplications')} /></label>
+        </>}
+        <label>Application deadline<input type="date" value={form.deadline} onChange={setField('deadline')} /></label>
+      </div>
+      <div className="connect-modal-actions"><button type="button" className="connect-button light" onClick={() => setShowForm(false)}>Cancel</button><button type="submit" className="connect-button" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Save post'} <Check size={15} /></button></div>
+    </form>}
+    {loading ? <div className="connect-loading">Loading opportunities…</div>
+      : opportunities.length ? <div className="connect-records">{opportunities.map((opportunity) => <article className="connect-record" key={opportunity.id}>
+        <div className="connect-record-main"><span className="connect-record-icon"><BriefcaseBusiness size={15} /></span><div className="connect-record-content">
+          <div className="connect-record-title"><strong>{opportunity.title}</strong><Status status={opportunity.status} /><span className="connect-status">{opportunity.type}</span></div>
+          <span>{opportunity.summary}</span>
+          <p>{opportunity.type === 'announcement' ? 'Announcement' : `${opportunity.applicationCount} / ${opportunity.maximumApplications} applications · ${opportunity.positionsAvailable} positions`} · {opportunity.interestedCount} interested</p>
+          {opportunity.deadline && <p className="connect-note">Deadline: {formatDate(opportunity.deadline)}</p>}
+        </div></div>
+        <div className="connect-record-actions"><button type="button" className="connect-button light" disabled={busy} onClick={() => edit(opportunity)}>Edit / manage</button></div>
+      </article>)}</div>
+      : <div className="connect-empty"><span>✦</span><strong>No opportunities created</strong><p>Publish a role, partner program or announcement to the Connect feed.</p></div>}
+  </section>;
 }
 
 function PartnerRecord({ row, updatePartner, busy }) {
@@ -358,7 +475,7 @@ function DecisionDialog({ activeTab, decision, setDecision, onSubmit, busy }) {
       <form onSubmit={onSubmit} className="connect-modal-form">
         <p className="connect-modal-target">{record.userId?.name || record.partnerId?.userId?.name || `Record ${record._id?.slice(-6)}`}{record.userId?.email ? ` · ${record.userId.email}` : ''}</p>
         {activeTab === 'payouts' && status === 'paid' && <p className="connect-payment-warning">Confirm the external payment is complete before marking this withdrawal paid.</p>}
-        {activeTab === 'applications' && status === 'approved' && record.type === 'applicant' && <label>Assigned role<select required value={decision.assignedRole || record.roleInterest || ''} onChange={setField('assignedRole')}><option value="" disabled>Select role</option>{roleOptions.map((role) => <option key={role}>{role}</option>)}</select></label>}
+        {activeTab === 'applications' && status === 'approved' && record.type === 'applicant' && <label>Assigned role<select required value={decision.assignedRole || record.roleInterest || ''} onChange={setField('assignedRole')}><option value="" disabled>Select role</option>{roleOptions.map((role) => <option key={role}>{role}</option>)}{record.roleInterest && !roleOptions.includes(record.roleInterest) && <option>{record.roleInterest}</option>}</select></label>}
         {activeTab === 'applications' && status === 'interview_scheduled' && <label>Interview date and time<input type="datetime-local" required value={decision.interviewAt || ''} onChange={setField('interviewAt')} /></label>}
         {activeTab === 'payouts' && status === 'paid' && <label>Payment reference<input required maxLength={120} value={decision.paymentReference || ''} onChange={setField('paymentReference')} placeholder="Bank transfer or payment reference" /></label>}
         <label>Staff note <span>Optional</span><textarea rows="3" maxLength={1000} value={decision.reviewNote || ''} onChange={setField('reviewNote')} placeholder="Add a note for the applicant or audit history…" /></label>
