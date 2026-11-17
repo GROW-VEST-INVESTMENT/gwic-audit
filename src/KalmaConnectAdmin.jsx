@@ -24,6 +24,12 @@ const roleOptions = [
   'Support Personnel',
   'Other',
 ];
+const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const payoutDaysLabel = (days = [1]) => days.map((day) => weekdayNames[day]).filter(Boolean).join(', ');
+const isTodayPayoutDay = (days = [1]) => {
+  const today = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Lagos', weekday: 'short' }).format(new Date());
+  return days.includes(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(today));
+};
 
 async function api(path, { method = 'GET', body } = {}) {
   const response = await fetch(`${API_BASE}/api/admin/connect/${path}`, {
@@ -96,8 +102,16 @@ export default function KalmaConnectAdmin() {
           }
         } else {
           const query = statusFilter === 'all' ? '' : `?status=${encodeURIComponent(statusFilter)}`;
-          const result = await api(`${activeTab}${query}`);
-          if (active) setRows(result[activeTab] || []);
+          if (activeTab === 'payouts') {
+            const [result, policyResult] = await Promise.all([api(`${activeTab}${query}`), api('policy')]);
+            if (active) {
+              setRows(result.payouts || []);
+              setPolicy(policyResult.policy);
+            }
+          } else {
+            const result = await api(`${activeTab}${query}`);
+            if (active) setRows(result[activeTab] || []);
+          }
         }
       } catch (reason) {
         if (active) setError(reason.message);
@@ -180,11 +194,12 @@ export default function KalmaConnectAdmin() {
           firstDepositRewardNaira: Number(formData.get('firstDepositRewardNaira')),
           activeSaverBonusNaira: Number(formData.get('activeSaverBonusNaira')),
           minimumPayoutNaira: Number(formData.get('minimumPayoutNaira')),
+          payoutDays: formData.getAll('payoutDays').map(Number),
           milestoneRewardsEnabled: formData.get('milestoneRewardsEnabled') === 'on',
         },
       });
       setPolicy(result.policy);
-      setNotice('Commission policy saved.');
+      setNotice('Commission and payout schedule saved.');
     } catch (reason) {
       setError(reason.message);
     } finally {
@@ -259,6 +274,7 @@ export default function KalmaConnectAdmin() {
         : <section className="connect-panel">
           <div className="connect-panel-toolbar">
             <div><h3>{tabs.find((tab) => tab.id === activeTab)?.label}</h3><span>{loading ? 'Loading…' : `${visibleRows.length} records`}</span></div>
+            {activeTab === 'payouts' && policy && <span className="connect-payout-schedule">Payout days: {payoutDaysLabel(policy.payoutDays)} · West Africa Time</span>}
             {activeTab !== 'audit' && <div className="connect-filters">
               <label className="connect-search"><Search size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search records" /></label>
               <select value={statusFilter} onChange={(event) => { setLoading(true); setError(''); setStatusFilter(event.target.value); }} aria-label="Filter by status">
@@ -274,7 +290,7 @@ export default function KalmaConnectAdmin() {
             </div>}
           </div>
           {loading ? <div className="connect-loading">Loading Connect records…</div>
-            : visibleRows.length ? <div className="connect-records">{visibleRows.map((row) => renderRecord(activeTab, row, { setDecision, updatePartner, busy, openInbox: (applicationId) => { setSelectedConversationId(applicationId); setActiveTab('inbox'); } }))}</div>
+            : visibleRows.length ? <div className="connect-records">{visibleRows.map((row) => renderRecord(activeTab, row, { setDecision, updatePartner, busy, payoutDays: policy?.payoutDays, openInbox: (applicationId) => { setSelectedConversationId(applicationId); setActiveTab('inbox'); } }))}</div>
               : <div className="connect-empty"><span>✦</span><strong>No records found</strong><p>There are no matching records for this filter.</p></div>}
         </section>}
 
@@ -288,7 +304,7 @@ function renderRecord(tab, row, actions) {
   if (tab === 'applications') return <ApplicationRecord key={row._id} row={row} openDecision={actions.setDecision} openInbox={actions.openInbox} busy={actions.busy} />;
   if (tab === 'partners') return <PartnerRecord key={row._id} row={row} updatePartner={actions.updatePartner} busy={actions.busy} />;
   if (tab === 'commissions') return <CommissionRecord key={row._id} row={row} openDecision={actions.setDecision} />;
-  return <PayoutRecord key={row._id} row={row} openDecision={actions.setDecision} />;
+  return <PayoutRecord key={row._id} row={row} openDecision={actions.setDecision} payoutDays={actions.payoutDays} />;
 }
 
 function OverviewPanel({ summary, loading }) {
@@ -569,20 +585,22 @@ function CommissionRecord({ row, openDecision }) {
   </article>;
 }
 
-function PayoutRecord({ row, openDecision }) {
+function PayoutRecord({ row, openDecision, payoutDays = [1] }) {
   const user = row.userId || {};
   const bank = row.linkedBankId || {};
+  const payoutDayAvailable = isTodayPayoutDay(payoutDays);
   return <article className="connect-record">
     <div className="connect-record-main"><span className="connect-record-icon payout">₦</span><div className="connect-record-content">
       <div className="connect-record-title"><strong>{currency(row.amountNaira)}</strong><Status status={row.status} /></div>
       <span>{user.name || 'Partner'} · {user.email}</span><p>{bank.bankName || row.bankName || 'Linked bank'} ···· {bank.accountLast4 || row.accountLast4 || '—'} · Requested {formatDate(row.createdAt)}</p>
+      {(bank.accountName || user.name) && <p className="connect-note">Connect legal name: {user.name || '—'} · Paystack account name: {bank.accountName || '—'}</p>}
       {row.reviewNote && <p className="connect-note">Note: {row.reviewNote}</p>}
       {row.paymentReference && <p className="connect-note">Payment reference: {row.paymentReference}</p>}
       {row.transferReference && <p className="connect-note">Paystack reference: {row.transferReference}{row.transferStatus ? ` · ${row.transferStatus}` : ''}</p>}
       {row.transferError && <p className="connect-transfer-error">{row.transferError}</p>}
     </div></div>
     <div className="connect-record-actions">
-      {row.status === 'pending' && <><button type="button" className="connect-button" onClick={() => openDecision({ record: row, status: 'approved' })}>Approve &amp; pay</button><button type="button" className="connect-button danger" onClick={() => openDecision({ record: row, status: 'rejected' })}>Reject</button></>}
+      {row.status === 'pending' && <>{!payoutDayAvailable && <small className="connect-payout-day-hint">Available on {payoutDaysLabel(payoutDays)} (West Africa Time)</small>}<button type="button" className="connect-button" disabled={!payoutDayAvailable} onClick={() => openDecision({ record: row, status: 'approved' })}>Approve &amp; pay</button><button type="button" className="connect-button danger" onClick={() => openDecision({ record: row, status: 'rejected' })}>Reject</button></>}
       {row.status === 'approved' && !row.transferReference && <button type="button" className="connect-button light" onClick={() => openDecision({ record: row, status: 'paid', paymentReference: '' })}>Record legacy payment</button>}
       {row.status === 'requires_otp' && <button type="button" className="connect-button" onClick={() => openDecision({ record: row, status: 'otp', otp: '' })}>Enter Paystack OTP</button>}
       {row.status === 'processing' && <button type="button" className="connect-button light" onClick={() => openDecision({ record: row, status: 'reconcile' })}>Check Paystack status</button>}
@@ -601,6 +619,11 @@ function PolicyPanel({ policy, loading, busy, onSubmit }) {
       <label>First qualifying deposit (NGN)<input type="number" min="0" max={policy.maxPerReferralNaira} step="1" name="firstDepositRewardNaira" defaultValue={policy.firstDepositRewardNaira} /></label>
       <label>Active saver (NGN)<input type="number" min="0" max={policy.maxPerReferralNaira} step="1" name="activeSaverBonusNaira" defaultValue={policy.activeSaverBonusNaira} /></label>
       <label>Minimum withdrawal (NGN)<input type="number" min="1" max="10000000" step="1" name="minimumPayoutNaira" defaultValue={policy.minimumPayoutNaira} /></label>
+      <fieldset className="connect-payout-days">
+        <legend>Scheduled payout days</legend>
+        <small>Partners can request withdrawals any day. Paystack transfers can only be initiated on the selected days (West Africa Time).</small>
+        <div>{weekdayNames.map((day, index) => <label key={day}><input type="checkbox" name="payoutDays" value={index} defaultChecked={(policy.payoutDays || [1]).includes(index)} /><span>{day}</span></label>)}</div>
+      </fieldset>
       <label className={`connect-toggle ${!policy.rewardsMayBeEnabled ? 'disabled' : ''}`}><input type="checkbox" name="milestoneRewardsEnabled" defaultChecked={policy.milestoneRewardsEnabled} disabled={!policy.rewardsMayBeEnabled} /><span><b>Enable milestone rewards</b><small>Eligible events create pending commissions for admin review. Approved withdrawal requests are paid through Paystack.</small></span></label>
     </div>
     <button className="connect-button" type="submit" disabled={busy}>Save policy</button>
