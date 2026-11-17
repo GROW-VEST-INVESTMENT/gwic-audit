@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, BarChart3, BriefcaseBusiness, Check, Clock3, MessageSquareText, Plus, RefreshCw, Search, ShieldCheck, Users, WalletCards, X } from 'lucide-react';
+import { Activity, BarChart3, BriefcaseBusiness, Check, Clock3, IdCard, MessageSquareText, Plus, RefreshCw, Search, ShieldCheck, Users, WalletCards, X } from 'lucide-react';
 import './KalmaConnectAdmin.css';
 
 const API_BASE = import.meta.env.DEV
@@ -9,6 +9,7 @@ const tabs = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'applications', label: 'Applications', icon: Users },
   { id: 'inbox', label: 'Recruitment inbox', icon: MessageSquareText },
+  { id: 'id-cards', label: 'Associate ID cards', icon: IdCard },
   { id: 'opportunities', label: 'Opportunities', icon: BriefcaseBusiness },
   { id: 'partners', label: 'Partners', icon: ShieldCheck },
   { id: 'commissions', label: 'Earnings', icon: Clock3 },
@@ -31,7 +32,7 @@ const isTodayPayoutDay = (days = [1]) => {
   return days.includes(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(today));
 };
 
-async function api(path, { method = 'GET', body } = {}) {
+async function api(path, { method = 'GET', body, formData } = {}) {
   const response = await fetch(`${API_BASE}/api/admin/connect/${path}`, {
     method,
     credentials: 'include',
@@ -40,6 +41,7 @@ async function api(path, { method = 'GET', body } = {}) {
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(formData === undefined ? {} : { body: formData }),
     cache: 'no-store',
   });
   let payload;
@@ -100,6 +102,10 @@ export default function KalmaConnectAdmin() {
             setRows(conversations);
             setUnreadInboxCount(conversations.reduce((total, conversation) => total + conversation.unreadCount, 0));
           }
+        } else if (activeTab === 'id-cards') {
+          const query = statusFilter === 'all' ? '' : `?status=${encodeURIComponent(statusFilter)}`;
+          const result = await api(`id-cards${query}`);
+          if (active) setRows(result.idCards || []);
         } else {
           const query = statusFilter === 'all' ? '' : `?status=${encodeURIComponent(statusFilter)}`;
           if (activeTab === 'payouts') {
@@ -228,6 +234,22 @@ export default function KalmaConnectAdmin() {
     }
   };
 
+  const reviewIdCard = async (record, status, reviewNote) => {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await api(`id-cards/${record.id}`, { method: 'PATCH', body: { status, reviewNote } });
+      setNotice(status === 'approved' ? 'Associate ID card approved and issued.' : `ID card request marked ${status.replaceAll('_', ' ')}.`);
+      setLoading(true);
+      setReloadToken((current) => current + 1);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const visibleRows = rows.filter((row) => {
     const text = [
       row.userId?.name,
@@ -271,6 +293,8 @@ export default function KalmaConnectAdmin() {
             ? <OpportunityPanel opportunities={rows} loading={loading} busy={busy} onSave={saveOpportunity} />
             : activeTab === 'inbox'
               ? <InboxPanel conversations={rows} loading={loading} busy={busy} initialApplicationId={selectedConversationId} onRefresh={refreshConnectData} />
+              : activeTab === 'id-cards'
+                ? <IdCardPanel rows={rows} loading={loading} busy={busy} onReview={reviewIdCard} />
         : <section className="connect-panel">
           <div className="connect-panel-toolbar">
             <div><h3>{tabs.find((tab) => tab.id === activeTab)?.label}</h3><span>{loading ? 'Loading…' : `${visibleRows.length} records`}</span></div>
@@ -370,10 +394,40 @@ function ApplicationRecord({ row, openDecision, openInbox, busy }) {
   );
 }
 
+function IdCardPanel({ rows, loading, busy, onReview }) {
+  const [notes, setNotes] = useState({});
+  return <section className="connect-id-card-panel">
+    <header><div><h3>Associate ID card requests</h3><span>{loading ? 'Loading requests…' : `${rows.length} requests`}</span></div></header>
+    {loading ? <div className="connect-loading">Loading ID card requests…</div>
+      : rows.length ? <div className="connect-id-card-list">{rows.map((request) => <article className="connect-id-card-request" key={request.id}>
+        <img crossOrigin="use-credentials" src={`${API_BASE}${request.photoUrl}`} alt={`${request.name || 'Associate'} ID request photo`} loading="lazy" />
+        <div className="connect-id-card-details">
+          <div className="connect-id-card-heading"><div><h4>{request.name || 'Associate'}</h4><small>{request.email}</small></div><Status status={request.status} /></div>
+          <p><strong>Assigned role:</strong> {request.assignedRole || 'Not listed'}</p>
+          <p><strong>Submitted:</strong> {formatDate(request.createdAt)}</p>
+          {request.employeeId && <p><strong>Staff ID:</strong> {request.employeeId}</p>}
+          {request.reviewNote && <div className="connect-id-card-note"><strong>Previous review note</strong><p>{request.reviewNote}</p></div>}
+          {request.status === 'pending' && <div className="connect-id-card-review">
+            <label htmlFor={`id-card-note-${request.id}`}>Review note</label>
+            <textarea id={`id-card-note-${request.id}`} maxLength="500" value={notes[request.id] || ''} onChange={(event) => setNotes((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Explain what needs updating, if applicable…" />
+            <div>
+              <button type="button" className="connect-button" onClick={() => onReview(request, 'approved', notes[request.id] || '')} disabled={busy}>Approve and issue</button>
+              <button type="button" className="connect-button light" onClick={() => onReview(request, 'changes_requested', notes[request.id] || '')} disabled={busy || !notes[request.id]?.trim()}>Request changes</button>
+              <button type="button" className="connect-button danger" onClick={() => onReview(request, 'rejected', notes[request.id] || '')} disabled={busy}>Reject</button>
+            </div>
+          </div>}
+        </div>
+      </article>)}</div>
+        : <div className="connect-empty"><strong>No ID card requests</strong><p>Requests from eligible active associates will appear here for review.</p></div>}
+  </section>;
+}
+
 function InboxPanel({ conversations, loading, busy, initialApplicationId, onRefresh }) {
   const [selectedId, setSelectedId] = useState(initialApplicationId ? String(initialApplicationId) : '');
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const [attachmentError, setAttachmentError] = useState('');
   const [threadLoading, setThreadLoading] = useState(Boolean(initialApplicationId));
   const [sending, setSending] = useState(false);
   const [search, setSearch] = useState('');
@@ -394,19 +448,54 @@ function InboxPanel({ conversations, loading, busy, initialApplicationId, onRefr
 
   const send = async (event) => {
     event.preventDefault();
-    if (!selectedId || !draft.trim() || sending || busy) return;
+    if (!selectedId || (!draft.trim() && !attachments.length) || sending || busy) return;
     setSending(true);
     setThreadError('');
     try {
-      const result = await api(`applications/${selectedId}/messages`, { method: 'POST', body: { body: draft } });
+      const path = `applications/${selectedId}/messages`;
+      const result = attachments.length
+        ? await api(path, {
+          method: 'POST',
+          formData: (() => {
+            const formData = new FormData();
+            formData.append('body', draft);
+            attachments.forEach((file) => formData.append('images', file));
+            return formData;
+          })(),
+        })
+        : await api(path, { method: 'POST', body: { body: draft } });
       setMessages((current) => [...current, result.message]);
       setDraft('');
+      setAttachments([]);
+      setAttachmentError('');
       onRefresh();
     } catch (reason) {
       setThreadError(reason.message);
     } finally {
       setSending(false);
     }
+  };
+
+  const selectAttachments = (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (files.length > 3) {
+      setAttachments([]);
+      setAttachmentError('Attach no more than three images to one message.');
+      return;
+    }
+    if (files.some((file) => file.size > 5 * 1024 * 1024) || files.reduce((total, file) => total + file.size, 0) > 10 * 1024 * 1024) {
+      setAttachments([]);
+      setAttachmentError('Each image must be 5 MB or smaller, and all images together must be 10 MB or smaller.');
+      return;
+    }
+    if (files.some((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))) {
+      setAttachments([]);
+      setAttachmentError('Choose PNG, JPEG, or WebP images.');
+      return;
+    }
+    setAttachmentError('');
+    setAttachments(files);
   };
 
   const loadOlder = async () => {
@@ -438,7 +527,7 @@ function InboxPanel({ conversations, loading, busy, initialApplicationId, onRefr
       <label className="connect-inbox-search"><Search size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search applicants or roles" /></label>
       {loading ? <div className="connect-loading">Loading conversations…</div>
         : visibleConversations.length ? visibleConversations.map((conversation) => <button type="button" className={String(conversation.applicationId) === String(selectedId) ? 'connect-inbox-item selected' : 'connect-inbox-item'} key={conversation.applicationId} onClick={() => { setThreadError(''); setThreadLoading(true); setSelectedId(String(conversation.applicationId)) }}>
-          <span className="connect-inbox-avatar">{conversation.applicant?.name?.[0]?.toUpperCase() || 'A'}</span><span className="connect-inbox-copy"><strong>{conversation.applicant?.name || 'Applicant'}</strong><small className="connect-inbox-role">{conversation.opportunityTitle}</small><small className="connect-inbox-preview">{conversation.latestMessage?.body || 'Start the conversation with this applicant.'}</small><small className="connect-inbox-time">{conversation.latestMessage ? formatDate(conversation.latestMessage.createdAt) : 'No messages yet'}</small></span>{conversation.unreadCount > 0 && <span className="connect-inbox-unread">{conversation.unreadCount}</span>}
+        <span className="connect-inbox-avatar">{conversation.applicant?.name?.[0]?.toUpperCase() || 'A'}</span><span className="connect-inbox-copy"><strong>{conversation.applicant?.name || 'Applicant'}</strong><small className="connect-inbox-role">{conversation.opportunityTitle}</small><small className="connect-inbox-preview">{conversation.latestMessage?.body || (conversation.latestMessage?.attachments?.length ? 'Image attachment' : 'Start the conversation with this applicant.')}</small><small className="connect-inbox-time">{conversation.latestMessage ? formatDate(conversation.latestMessage.createdAt) : 'No messages yet'}</small></span>{conversation.unreadCount > 0 && <span className="connect-inbox-unread">{conversation.unreadCount}</span>}
         </button>)
           : <div className="connect-empty"><strong>No conversations found</strong><p>Application conversations will appear here.</p></div>}
     </aside>
@@ -448,10 +537,10 @@ function InboxPanel({ conversations, loading, busy, initialApplicationId, onRefr
         {threadError && <div className="connect-alert error connect-inbox-error" role="alert">{threadError}</div>}
         <div className="connect-inbox-messages" aria-live="polite">
           {threadLoading ? <div className="connect-loading">Loading thread…</div>
-            : <>{hasOlderMessages && <button type="button" className="connect-load-older" onClick={loadOlder} disabled={loadingOlder}>{loadingOlder ? 'Loading earlier messages…' : 'Load earlier messages'}</button>}{messages.length ? messages.map((message) => <article className={`connect-inbox-message ${message.senderRole}`} key={message.id}><small><span>{message.senderRole === 'staff' ? 'Kalma Connect team · You' : message.senderRole === 'applicant' ? selected.applicant?.name || 'Applicant' : 'System update'}</span><time dateTime={message.createdAt}>{formatDate(message.createdAt)}</time></small><p>{message.body}</p></article>)
+            : <>{hasOlderMessages && <button type="button" className="connect-load-older" onClick={loadOlder} disabled={loadingOlder}>{loadingOlder ? 'Loading earlier messages…' : 'Load earlier messages'}</button>}{messages.length ? messages.map((message) => <article className={`connect-inbox-message ${message.senderRole}`} key={message.id}><small><span>{message.senderRole === 'staff' ? 'Kalma Connect team · You' : message.senderRole === 'applicant' ? selected.applicant?.name || 'Applicant' : 'System update'}</span><time dateTime={message.createdAt}>{formatDate(message.createdAt)}</time></small>{message.body && <p>{message.body}</p>}{message.attachments?.length > 0 && <div className="connect-inbox-image-grid">{message.attachments.map((attachment) => <a key={attachment.id} href={`${API_BASE}/api/admin/connect/applications/${selectedId}/messages/${message.id}/attachments/${attachment.id}`} target="_blank" rel="noreferrer"><img crossOrigin="use-credentials" src={`${API_BASE}/api/admin/connect/applications/${selectedId}/messages/${message.id}/attachments/${attachment.id}`} alt={attachment.name} loading="lazy" /></a>)}</div>}</article>)
               : <div className="connect-empty"><strong>Start a helpful conversation</strong><p>Send a clear, actionable update related to this application.</p></div>}</>}
         </div>
-        <form className="connect-inbox-reply" onSubmit={send}><label htmlFor="connect-inbox-message">Message applicant</label><textarea id="connect-inbox-message" rows="3" maxLength="2000" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Share an update, request a document, or explain the next step…" /><div><small>{draft.length}/2000 characters · Only authorized staff and this applicant can view this thread</small><button type="submit" className="connect-button" disabled={sending || busy || !draft.trim()}>{sending ? 'Sending…' : 'Send message'} <MessageSquareText size={14} /></button></div></form>
+        <form className="connect-inbox-reply" onSubmit={send}><label htmlFor="connect-inbox-message">Message applicant</label><textarea id="connect-inbox-message" rows="3" maxLength="2000" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Share an update, request a document, or explain the next step…" /><div className="connect-inbox-attachment-controls"><label className="connect-button light" htmlFor="connect-inbox-images">Attach images</label><input id="connect-inbox-images" type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={selectAttachments} /><small>Up to 3 private images · 5 MB each</small></div>{attachments.length > 0 && <div className="connect-inbox-selected-files">{attachments.map((file) => <span key={`${file.name}-${file.lastModified}`}>{file.name}</span>)}</div>}{attachmentError && <p className="connect-inbox-error" role="alert">{attachmentError}</p>}<div><small>{draft.length}/2000 characters · Only authorized staff and this applicant can view this thread</small><button type="submit" className="connect-button" disabled={sending || busy || (!draft.trim() && !attachments.length)}>{sending ? 'Sending…' : 'Send message'} <MessageSquareText size={14} /></button></div></form>
       </> : <div className="connect-empty"><strong>Select an applicant thread</strong><p>Messages stay private to the assigned applicant and authorized Connect staff.</p></div>}
     </section>
   </section>;
