@@ -162,8 +162,11 @@ export default function KalmaConnectAdmin() {
         method: 'PATCH',
         body: {
           registrationRewardNaira: Number(formData.get('registrationRewardNaira')),
+          kycRewardNaira: Number(formData.get('kycRewardNaira')),
+          firstDepositRewardNaira: Number(formData.get('firstDepositRewardNaira')),
+          activeSaverBonusNaira: Number(formData.get('activeSaverBonusNaira')),
           minimumPayoutNaira: Number(formData.get('minimumPayoutNaira')),
-          registrationRewardEnabled: formData.get('registrationRewardEnabled') === 'on',
+          milestoneRewardsEnabled: formData.get('milestoneRewardsEnabled') === 'on',
         },
       });
       setPolicy(result.policy);
@@ -534,10 +537,18 @@ function PartnerRecord({ row, updatePartner, busy }) {
 
 function CommissionRecord({ row, openDecision }) {
   const partner = row.partnerId || {};
+  const referredUser = row.referralId?.referredUserId || {};
+  const rewardLabels = {
+    registration: 'Completed signup',
+    kyc_verification: 'KYC approved',
+    first_deposit: 'First qualifying deposit',
+    active_saver: 'Active saver milestone',
+  };
   return <article className="connect-record">
     <div className="connect-record-main"><span className="connect-record-icon earnings">₦</span><div className="connect-record-content">
-      <div className="connect-record-title"><strong>{currency(row.amountNaira)} · Registration reward</strong><Status status={row.status} /></div>
-      <span>{partner.userId?.name || 'Partner'} · {partner.userId?.email || partner.promoCode || '—'}</span><p>Referral activity submitted {formatDate(row.createdAt)}</p>
+      <div className="connect-record-title"><strong>{currency(row.amountNaira)} · {rewardLabels[row.type] || 'Referral reward'}</strong><Status status={row.status} /></div>
+      <span>Partner: {partner.userId?.name || partner.promoCode || '—'} · Referred account: {referredUser.name || referredUser.email || '—'}</span>
+      <p>Reward recorded {formatDate(row.createdAt)} · Signup {formatDate(row.referralId?.registeredAt)}</p>
       {row.reviewNote && <p className="connect-note">Review note: {row.reviewNote}</p>}
     </div></div>
     {row.status === 'pending' && <div className="connect-record-actions"><button type="button" className="connect-button" onClick={() => openDecision({ record: row, status: 'approved' })}>Approve</button><button type="button" className="connect-button danger" onClick={() => openDecision({ record: row, status: 'rejected' })}>Reject</button></div>}
@@ -564,12 +575,15 @@ function PayoutRecord({ row, openDecision }) {
 function PolicyPanel({ policy, loading, busy, onSubmit }) {
   if (loading || !policy) return <div className="connect-panel connect-loading">Loading commission policy…</div>;
   return <form className="connect-panel connect-policy" onSubmit={onSubmit}>
-    <div className="connect-panel-toolbar"><div><h3>Commission policy</h3><span>Configure approved registration rewards and withdrawal minimums.</span></div></div>
-    {!policy.rewardsMayBeEnabled && <div className="connect-policy-notice"><ShieldCheck size={17} /><span>Registration rewards are locked until compliance approval is configured on the backend. Referrals will still be tracked; savings and deposit commissions are not active.</span></div>}
+    <div className="connect-panel-toolbar"><div><h3>Commission policy</h3><span>Configure milestone rewards and withdrawal minimums. Maximum scheduled exposure is {currency(policy.maxPerReferralNaira)} per referral.</span></div></div>
+    {!policy.rewardsMayBeEnabled && <div className="connect-policy-notice"><ShieldCheck size={17} /><span>All referral rewards remain locked until the operator configures formal compliance approval on the backend. Signup referrals can still be tracked.</span></div>}
     <div className="connect-policy-fields">
-      <label>Registration reward (NGN)<input type="number" min="0" max="100000000" step="1" name="registrationRewardNaira" defaultValue={policy.registrationRewardNaira} /></label>
+      <label>Completed signup (NGN)<input type="number" min="0" max={policy.maxPerReferralNaira} step="1" name="registrationRewardNaira" defaultValue={policy.registrationRewardNaira} /></label>
+      <label>KYC approved (NGN)<input type="number" min="0" max={policy.maxPerReferralNaira} step="1" name="kycRewardNaira" defaultValue={policy.kycRewardNaira} /></label>
+      <label>First qualifying deposit (NGN)<input type="number" min="0" max={policy.maxPerReferralNaira} step="1" name="firstDepositRewardNaira" defaultValue={policy.firstDepositRewardNaira} /></label>
+      <label>Active saver (NGN)<input type="number" min="0" max={policy.maxPerReferralNaira} step="1" name="activeSaverBonusNaira" defaultValue={policy.activeSaverBonusNaira} /></label>
       <label>Minimum withdrawal (NGN)<input type="number" min="1" max="10000000" step="1" name="minimumPayoutNaira" defaultValue={policy.minimumPayoutNaira} /></label>
-      <label className={`connect-toggle ${!policy.rewardsMayBeEnabled ? 'disabled' : ''}`}><input type="checkbox" name="registrationRewardEnabled" defaultChecked={policy.registrationRewardEnabled} disabled={!policy.rewardsMayBeEnabled} /><span><b>Enable registration rewards</b><small>New eligible referrals create a pending commission for review.</small></span></label>
+      <label className={`connect-toggle ${!policy.rewardsMayBeEnabled ? 'disabled' : ''}`}><input type="checkbox" name="milestoneRewardsEnabled" defaultChecked={policy.milestoneRewardsEnabled} disabled={!policy.rewardsMayBeEnabled} /><span><b>Enable milestone rewards</b><small>Eligible events create pending commissions for manual review. Payouts are not automatic.</small></span></label>
     </div>
     <button className="connect-button" type="submit" disabled={busy}>Save policy</button>
   </form>;
