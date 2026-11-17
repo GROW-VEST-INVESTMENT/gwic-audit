@@ -116,16 +116,30 @@ export default function KalmaConnectAdmin() {
     setError('');
     setNotice('');
     try {
-      const { record, status, reviewNote, assignedRole, interviewAt, paymentReference } = decision;
+      const { record, status, reviewNote, assignedRole, interviewAt, otp, paymentReference } = decision;
       if (activeTab === 'applications') {
         await api(`applications/${record._id}`, { method: 'PATCH', body: { status, reviewNote, assignedRole, interviewAt } });
       } else if (activeTab === 'commissions') {
         await api(`commissions/${record._id}`, { method: 'PATCH', body: { status, reviewNote } });
       } else if (activeTab === 'payouts') {
-        await api(`payouts/${record._id}`, { method: 'PATCH', body: { status, reviewNote, paymentReference } });
+        if (status === 'otp') {
+          await api(`payouts/${record._id}/otp`, { method: 'POST', body: { otp } });
+        } else if (status === 'reconcile') {
+          await api(`payouts/${record._id}/reconcile`, { method: 'POST' });
+        } else {
+          await api(`payouts/${record._id}`, { method: 'PATCH', body: { status, reviewNote, paymentReference } });
+        }
       }
       setDecision(null);
-      setNotice('The Connect record has been updated and audited.');
+      setNotice(activeTab === 'payouts' && status === 'approved'
+        ? 'Withdrawal approved and submitted to Paystack. It will be marked paid after provider confirmation.'
+        : activeTab === 'payouts' && status === 'otp'
+          ? 'Paystack accepted the OTP. The transfer will be marked paid after provider confirmation.'
+          : activeTab === 'payouts' && status === 'paid'
+            ? 'The historical withdrawal payment was recorded.'
+          : activeTab === 'payouts' && status === 'reconcile'
+            ? 'Paystack transfer status refreshed.'
+            : 'The Connect record has been updated and audited.');
       setLoading(true);
       setReloadToken((current) => current + 1);
     } catch (reason) {
@@ -255,7 +269,7 @@ export default function KalmaConnectAdmin() {
                     ? ['active', 'suspended']
                     : activeTab === 'commissions'
                       ? ['pending', 'approved', 'rejected']
-                      : ['pending', 'approved', 'rejected', 'paid']).map((status) => <option value={status} key={status}>{status.replaceAll('_', ' ')}</option>)}
+                      : ['pending', 'approved', 'processing', 'requires_otp', 'rejected', 'paid', 'failed', 'reversed']).map((status) => <option value={status} key={status}>{status.replaceAll('_', ' ')}</option>)}
               </select>
             </div>}
           </div>
@@ -287,7 +301,7 @@ function OverviewPanel({ summary, loading }) {
     ['Active partners', summary.activePartners, `${summary.totalReferrals} total referrals`, '↗'],
     ['Pending commissions', currency(summary.pendingCommissionNaira), `${currency(summary.approvedCommissionNaira)} approved`, '₦'],
     ['Approved commissions', currency(summary.approvedCommissionNaira), 'Cleared for withdrawal', '✓'],
-    ['Payouts paid', currency(summary.paidPayoutNaira), `${currency(summary.pendingPayoutNaira + summary.approvedPayoutNaira)} in the payout queue`, '◷'],
+    ['Payouts paid', currency(summary.paidPayoutNaira), `${currency((summary.pendingPayoutNaira || 0) + (summary.approvedPayoutNaira || 0) + (summary.processingPayoutNaira || 0))} in the payout queue`, '◷'],
   ];
   return <div className="connect-overview">
     <div className="connect-overview-heading"><div><p className="connect-kicker">OPERATIONS SNAPSHOT</p><h3>Kalma Connect at a glance</h3></div><span>Live data from Connect records</span></div>
@@ -300,7 +314,7 @@ function AuditRecord({ row }) {
   return <article className="connect-record">
     <div className="connect-record-main"><span className="connect-record-icon audit"><Activity size={15} /></span><div className="connect-record-content">
       <div className="connect-record-title"><strong>{row.action.replaceAll('_', ' ')}</strong><span className="connect-status">{row.entityType}</span></div>
-      <span>{row.actorId?.name || 'Staff member'} · {row.actorId?.email || '—'} · {formatDate(row.createdAt)}</span>
+      <span>{row.actorId?.name || (row.action.startsWith('payout_transfer_') ? 'Paystack' : 'Staff member')} · {row.actorId?.email || '—'} · {formatDate(row.createdAt)}</span>
       {detail && <p className="connect-note">{detail}</p>}
     </div></div>
   </article>;
@@ -564,10 +578,14 @@ function PayoutRecord({ row, openDecision }) {
       <span>{user.name || 'Partner'} · {user.email}</span><p>{bank.bankName || row.bankName || 'Linked bank'} ···· {bank.accountLast4 || row.accountLast4 || '—'} · Requested {formatDate(row.createdAt)}</p>
       {row.reviewNote && <p className="connect-note">Note: {row.reviewNote}</p>}
       {row.paymentReference && <p className="connect-note">Payment reference: {row.paymentReference}</p>}
+      {row.transferReference && <p className="connect-note">Paystack reference: {row.transferReference}{row.transferStatus ? ` · ${row.transferStatus}` : ''}</p>}
+      {row.transferError && <p className="connect-transfer-error">{row.transferError}</p>}
     </div></div>
     <div className="connect-record-actions">
-      {row.status === 'pending' && <><button type="button" className="connect-button" onClick={() => openDecision({ record: row, status: 'approved' })}>Approve</button><button type="button" className="connect-button danger" onClick={() => openDecision({ record: row, status: 'rejected' })}>Reject</button></>}
-      {row.status === 'approved' && <button type="button" className="connect-button" onClick={() => openDecision({ record: row, status: 'paid' })}>Mark paid</button>}
+      {row.status === 'pending' && <><button type="button" className="connect-button" onClick={() => openDecision({ record: row, status: 'approved' })}>Approve &amp; pay</button><button type="button" className="connect-button danger" onClick={() => openDecision({ record: row, status: 'rejected' })}>Reject</button></>}
+      {row.status === 'approved' && !row.transferReference && <button type="button" className="connect-button light" onClick={() => openDecision({ record: row, status: 'paid', paymentReference: '' })}>Record legacy payment</button>}
+      {row.status === 'requires_otp' && <button type="button" className="connect-button" onClick={() => openDecision({ record: row, status: 'otp', otp: '' })}>Enter Paystack OTP</button>}
+      {row.status === 'processing' && <button type="button" className="connect-button light" onClick={() => openDecision({ record: row, status: 'reconcile' })}>Check Paystack status</button>}
     </div>
   </article>;
 }
@@ -583,7 +601,7 @@ function PolicyPanel({ policy, loading, busy, onSubmit }) {
       <label>First qualifying deposit (NGN)<input type="number" min="0" max={policy.maxPerReferralNaira} step="1" name="firstDepositRewardNaira" defaultValue={policy.firstDepositRewardNaira} /></label>
       <label>Active saver (NGN)<input type="number" min="0" max={policy.maxPerReferralNaira} step="1" name="activeSaverBonusNaira" defaultValue={policy.activeSaverBonusNaira} /></label>
       <label>Minimum withdrawal (NGN)<input type="number" min="1" max="10000000" step="1" name="minimumPayoutNaira" defaultValue={policy.minimumPayoutNaira} /></label>
-      <label className={`connect-toggle ${!policy.rewardsMayBeEnabled ? 'disabled' : ''}`}><input type="checkbox" name="milestoneRewardsEnabled" defaultChecked={policy.milestoneRewardsEnabled} disabled={!policy.rewardsMayBeEnabled} /><span><b>Enable milestone rewards</b><small>Eligible events create pending commissions for manual review. Payouts are not automatic.</small></span></label>
+      <label className={`connect-toggle ${!policy.rewardsMayBeEnabled ? 'disabled' : ''}`}><input type="checkbox" name="milestoneRewardsEnabled" defaultChecked={policy.milestoneRewardsEnabled} disabled={!policy.rewardsMayBeEnabled} /><span><b>Enable milestone rewards</b><small>Eligible events create pending commissions for admin review. Approved withdrawal requests are paid through Paystack.</small></span></label>
     </div>
     <button className="connect-button" type="submit" disabled={busy}>Save policy</button>
   </form>;
@@ -594,17 +612,25 @@ function DecisionDialog({ activeTab, decision, setDecision, onSubmit, busy }) {
   const setField = (field) => (event) => setDecision((current) => ({ ...current, [field]: event.target.value }));
   let title = `${status.replaceAll('_', ' ')} ${activeTab === 'applications' ? 'application' : activeTab === 'commissions' ? 'commission' : 'withdrawal'}`;
   if (status === 'approved' && activeTab === 'applications') title = record.type === 'partner' ? 'Approve Connect Partner' : 'Approve applicant';
+  if (activeTab === 'payouts' && status === 'approved') title = 'Approve and pay withdrawal';
+  if (activeTab === 'payouts' && status === 'paid') title = 'Record legacy withdrawal payment';
+  if (activeTab === 'payouts' && status === 'otp') title = 'Confirm Paystack transfer';
+  if (activeTab === 'payouts' && status === 'reconcile') title = 'Check Paystack transfer status';
   return <div className="connect-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDecision(null); }}>
     <section className="connect-modal" role="dialog" aria-modal="true" aria-labelledby="connect-modal-title">
       <div className="connect-modal-heading"><div><p className="connect-kicker">KALMA CONNECT REVIEW</p><h3 id="connect-modal-title">{title}</h3></div><button type="button" aria-label="Close dialog" onClick={() => setDecision(null)}><X size={18} /></button></div>
       <form onSubmit={onSubmit} className="connect-modal-form">
         <p className="connect-modal-target">{record.userId?.name || record.partnerId?.userId?.name || `Record ${record._id?.slice(-6)}`}{record.userId?.email ? ` · ${record.userId.email}` : ''}</p>
-        {activeTab === 'payouts' && status === 'paid' && <p className="connect-payment-warning">Confirm the external payment is complete before marking this withdrawal paid.</p>}
+        {activeTab === 'payouts' && status === 'approved' && <p className="connect-payment-warning">Confirm the recipient and amount. This immediately submits {currency(record.amountNaira)} from the Kalma Capital Paystack balance to {record.linkedBankId?.bankName || record.bankName || 'the linked bank'} ending in {record.linkedBankId?.accountLast4 || record.accountLast4 || '—'}. The withdrawal shows as paid only after Paystack confirms it.</p>}
+        {activeTab === 'payouts' && status === 'paid' && <p className="connect-payment-warning">This withdrawal was approved before automated Paystack payouts. Only record it as paid after verifying the external transfer already completed. This action does not send money.</p>}
+        {activeTab === 'payouts' && status === 'otp' && <p className="connect-payment-warning">Enter the one-time transfer authorization code from Paystack. The code is sent directly to Paystack and is not stored.</p>}
+        {activeTab === 'payouts' && status === 'reconcile' && <p className="connect-payment-warning">Check Paystack for the final transfer state. This does not initiate another transfer.</p>}
         {activeTab === 'applications' && status === 'approved' && record.type === 'applicant' && <label>Assigned role<select required value={decision.assignedRole || record.roleInterest || ''} onChange={setField('assignedRole')}><option value="" disabled>Select role</option>{roleOptions.map((role) => <option key={role}>{role}</option>)}{record.roleInterest && !roleOptions.includes(record.roleInterest) && <option>{record.roleInterest}</option>}</select></label>}
         {activeTab === 'applications' && status === 'interview_scheduled' && <label>Interview date and time<input type="datetime-local" required value={decision.interviewAt || ''} onChange={setField('interviewAt')} /></label>}
-        {activeTab === 'payouts' && status === 'paid' && <label>Payment reference<input required maxLength={120} value={decision.paymentReference || ''} onChange={setField('paymentReference')} placeholder="Bank transfer or payment reference" /></label>}
-        <label>Staff note <span>Optional</span><textarea rows="3" maxLength={1000} value={decision.reviewNote || ''} onChange={setField('reviewNote')} placeholder="Add a note for the applicant or audit history…" /></label>
-        <div className="connect-modal-actions"><button type="button" className="connect-button light" onClick={() => setDecision(null)}>Cancel</button><button type="submit" className="connect-button" disabled={busy}>{busy ? 'Saving…' : 'Confirm decision'} <Check size={15} /></button></div>
+        {activeTab === 'payouts' && status === 'otp' && <label>Paystack OTP<input required inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={decision.otp || ''} onChange={setField('otp')} placeholder="Enter the transfer OTP" /></label>}
+        {activeTab === 'payouts' && status === 'paid' && <label>Payment reference<input required maxLength={120} value={decision.paymentReference || ''} onChange={setField('paymentReference')} placeholder="Reference for the completed transfer" /></label>}
+        {status !== 'otp' && status !== 'reconcile' && <label>Staff note <span>Optional</span><textarea rows="3" maxLength={500} value={decision.reviewNote || ''} onChange={setField('reviewNote')} placeholder="Add a note for the audit history…" /></label>}
+        <div className="connect-modal-actions"><button type="button" className="connect-button light" onClick={() => setDecision(null)}>Cancel</button><button type="submit" className="connect-button" disabled={busy || (status === 'otp' && !/^\d{4,10}$/.test(decision.otp || ''))}>{busy ? 'Processing…' : status === 'approved' ? 'Approve & pay' : status === 'paid' ? 'Record payment' : status === 'otp' ? 'Confirm OTP' : status === 'reconcile' ? 'Check status' : 'Confirm decision'} <Check size={15} /></button></div>
       </form>
     </section>
   </div>;
