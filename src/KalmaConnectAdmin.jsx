@@ -397,27 +397,28 @@ function InboxPanel({ conversations, loading, busy, initialApplicationId, onRefr
     return text.includes(search.trim().toLowerCase());
   });
   const selected = conversations.find((conversation) => String(conversation.applicationId) === String(selectedId));
+  const unreadCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
 
   return <section className="connect-inbox-panel">
     <aside className="connect-inbox-list">
-      <div className="connect-inbox-list-heading"><div><p className="connect-kicker">PRIVATE APPLICANT THREADS</p><h3>Recruitment inbox</h3></div><span>{conversations.length}</span></div>
+      <div className="connect-inbox-list-heading"><div><p className="connect-kicker">PRIVATE APPLICANT THREADS</p><h3>Recruitment inbox</h3><small>{unreadCount ? `${unreadCount} unread message${unreadCount === 1 ? '' : 's'}` : 'All caught up'}</small></div><span>{conversations.length}</span></div>
       <label className="connect-inbox-search"><Search size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search applicants or roles" /></label>
       {loading ? <div className="connect-loading">Loading conversations…</div>
         : visibleConversations.length ? visibleConversations.map((conversation) => <button type="button" className={String(conversation.applicationId) === String(selectedId) ? 'connect-inbox-item selected' : 'connect-inbox-item'} key={conversation.applicationId} onClick={() => { setThreadError(''); setThreadLoading(true); setSelectedId(String(conversation.applicationId)) }}>
-          <span className="connect-inbox-avatar">{conversation.applicant?.name?.[0]?.toUpperCase() || 'A'}</span><span className="connect-inbox-copy"><strong>{conversation.applicant?.name || 'Applicant'}</strong><small>{conversation.opportunityTitle}</small><small>{conversation.latestMessage?.body || 'No messages yet'}</small></span>{conversation.unreadCount > 0 && <span className="connect-inbox-unread">{conversation.unreadCount}</span>}
+          <span className="connect-inbox-avatar">{conversation.applicant?.name?.[0]?.toUpperCase() || 'A'}</span><span className="connect-inbox-copy"><strong>{conversation.applicant?.name || 'Applicant'}</strong><small className="connect-inbox-role">{conversation.opportunityTitle}</small><small className="connect-inbox-preview">{conversation.latestMessage?.body || 'Start the conversation with this applicant.'}</small><small className="connect-inbox-time">{conversation.latestMessage ? formatDate(conversation.latestMessage.createdAt) : 'No messages yet'}</small></span>{conversation.unreadCount > 0 && <span className="connect-inbox-unread">{conversation.unreadCount}</span>}
         </button>)
           : <div className="connect-empty"><strong>No conversations found</strong><p>Application conversations will appear here.</p></div>}
     </aside>
     <section className="connect-inbox-thread">
       {selected ? <>
-        <header className="connect-inbox-thread-heading"><div><p className="connect-kicker">APPLICATION · {selected.applicationStatus.replaceAll('_', ' ').toUpperCase()}</p><h3>{selected.applicant?.name || 'Applicant'}</h3><span>{selected.applicant?.email || '—'} · {selected.opportunityTitle}</span></div><Status status={selected.applicationStatus} /></header>
+        <header className="connect-inbox-thread-heading"><div><p className="connect-kicker">PRIVATE RECRUITMENT CONVERSATION</p><h3>{selected.applicant?.name || 'Applicant'}</h3><span>{selected.opportunityTitle} · {selected.applicant?.email || 'No email available'}</span></div><Status status={selected.applicationStatus} /></header>
         {threadError && <div className="connect-alert error connect-inbox-error" role="alert">{threadError}</div>}
         <div className="connect-inbox-messages" aria-live="polite">
           {threadLoading ? <div className="connect-loading">Loading thread…</div>
-            : <>{hasOlderMessages && <button type="button" className="connect-load-older" onClick={loadOlder} disabled={loadingOlder}>{loadingOlder ? 'Loading earlier messages…' : 'Load earlier messages'}</button>}{messages.length ? messages.map((message) => <article className={`connect-inbox-message ${message.senderRole}`} key={message.id}><small>{message.senderRole === 'staff' ? 'Kalma Connect team' : message.senderRole === 'applicant' ? 'Applicant' : 'System'} · {formatDate(message.createdAt)}</small><p>{message.body}</p></article>)
+            : <>{hasOlderMessages && <button type="button" className="connect-load-older" onClick={loadOlder} disabled={loadingOlder}>{loadingOlder ? 'Loading earlier messages…' : 'Load earlier messages'}</button>}{messages.length ? messages.map((message) => <article className={`connect-inbox-message ${message.senderRole}`} key={message.id}><small><span>{message.senderRole === 'staff' ? 'Kalma Connect team · You' : message.senderRole === 'applicant' ? selected.applicant?.name || 'Applicant' : 'System update'}</span><time dateTime={message.createdAt}>{formatDate(message.createdAt)}</time></small><p>{message.body}</p></article>)
               : <div className="connect-empty"><strong>Start a helpful conversation</strong><p>Send a clear, actionable update related to this application.</p></div>}</>}
         </div>
-        <form className="connect-inbox-reply" onSubmit={send}><label htmlFor="connect-inbox-message">Message applicant</label><textarea id="connect-inbox-message" rows="3" maxLength="2000" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Share an update, request a document, or explain the next step…" /><div><small>{draft.length}/2000 characters</small><button type="submit" className="connect-button" disabled={sending || busy || !draft.trim()}>{sending ? 'Sending…' : 'Send message'} <MessageSquareText size={14} /></button></div></form>
+        <form className="connect-inbox-reply" onSubmit={send}><label htmlFor="connect-inbox-message">Message applicant</label><textarea id="connect-inbox-message" rows="3" maxLength="2000" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Share an update, request a document, or explain the next step…" /><div><small>{draft.length}/2000 characters · Only authorized staff and this applicant can view this thread</small><button type="submit" className="connect-button" disabled={sending || busy || !draft.trim()}>{sending ? 'Sending…' : 'Send message'} <MessageSquareText size={14} /></button></div></form>
       </> : <div className="connect-empty"><strong>Select an applicant thread</strong><p>Messages stay private to the assigned applicant and authorized Connect staff.</p></div>}
     </section>
   </section>;

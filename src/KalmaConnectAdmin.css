@@ -147,46 +147,55 @@
 
 .connect-tabs button { position: relative; }
 .connect-tab-unread { width: 7px; height: 7px; border-radius: 50%; background: #c7924a; }
-.connect-inbox-panel { display: grid; grid-template-columns: minmax(250px, .75fr) minmax(0, 1.45fr); min-height: 510px; overflow: hidden; border: 1px solid #e8ede8; border-radius: 8px; background: #fff; }
-.connect-inbox-list { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid #edf0ed; }
-.connect-inbox-list-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 17px 16px 12px; }
-.connect-inbox-list-heading .connect-kicker { margin-bottom: 4px; }
-.connect-inbox-list-heading h3 { margin: 0; color: #2e4035; font-size: 13px; }
-.connect-inbox-list-heading > span { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 50%; color: #477252; background: #edf4ee; font-size: 10px; font-weight: 700; }
-.connect-inbox-search { display: flex; align-items: center; gap: 7px; margin: 0 12px 9px; padding: 0 9px; border: 1px solid #e4e9e4; border-radius: 6px; color: #9aa39c; }
-.connect-inbox-search input { width: 100%; height: 34px; border: 0; outline: 0; color: #435248; background: transparent; font-size: 10px; }
-.connect-inbox-item { display: flex; align-items: flex-start; gap: 9px; width: 100%; padding: 12px; border: 0; border-top: 1px solid #eff2ef; color: inherit; background: #fff; text-align: left; }
-.connect-inbox-item:hover, .connect-inbox-item.selected { background: #f5f9f5; }
-.connect-inbox-avatar { display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #37644a; background: #eaf3ec; font-size: 12px; font-weight: 700; }
+.connect-inbox-panel { display: grid; grid-template-columns: minmax(280px, .78fr) minmax(0, 1.45fr); min-height: 560px; overflow: hidden; border: 1px solid #dfe8e0; border-radius: 12px; background: #fff; box-shadow: 0 12px 34px rgba(35,59,43,.07); }
+.connect-inbox-list { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid #e4ebe4; background: linear-gradient(155deg, #fff 0%, #f7faf7 100%); }
+.connect-inbox-list-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 20px 18px 14px; }
+.connect-inbox-list-heading .connect-kicker { margin-bottom: 5px; color: #a77a3f; }
+.connect-inbox-list-heading h3 { margin: 0; color: #263b30; font-size: 17px; letter-spacing: -.3px; }
+.connect-inbox-list-heading small { display: block; margin-top: 5px; color: #78867d; font-size: 10px; }
+.connect-inbox-list-heading > span { display: grid; place-items: center; min-width: 29px; height: 29px; border: 1px solid #dce8df; border-radius: 9px; color: #286247; background: #eaf4ed; font-size: 11px; font-weight: 800; }
+.connect-inbox-search { display: flex; align-items: center; gap: 8px; margin: 0 14px 11px; padding: 0 10px; border: 1px solid #e0e8e1; border-radius: 8px; color: #859288; background: #fff; }
+.connect-inbox-search:focus-within { border-color: #75a386; box-shadow: 0 0 0 3px rgba(61,131,84,.09); }
+.connect-inbox-search input { width: 100%; height: 40px; border: 0; outline: 0; color: #35473b; background: transparent; font-size: 12px; }
+.connect-inbox-item { display: flex; align-items: flex-start; gap: 10px; width: calc(100% - 20px); margin: 4px 10px 0; padding: 12px 10px; border: 1px solid transparent; border-radius: 10px; color: inherit; background: transparent; text-align: left; transition: background .18s, border-color .18s, box-shadow .18s; }
+.connect-inbox-item:hover { border-color: #e3ebe4; background: #fff; }
+.connect-inbox-item.selected { border-color: #cddfd1; background: linear-gradient(120deg, #edf6ef, #f8f6ed); box-shadow: 0 4px 12px rgba(35,76,51,.06); }
+.connect-inbox-avatar { display: grid; flex: 0 0 auto; place-items: center; width: 40px; height: 40px; border: 1px solid #dbe8de; border-radius: 12px; color: #fff; background: linear-gradient(145deg, #28704e, #0d493b 75%, #a98043); font-size: 15px; font-weight: 800; }
 .connect-inbox-copy { display: grid; flex: 1; min-width: 0; gap: 4px; }
-.connect-inbox-copy strong { color: #3a4a3f; font-size: 10px; }
-.connect-inbox-copy small { overflow: hidden; color: #879289; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
-.connect-inbox-unread { display: grid; flex: 0 0 auto; place-items: center; min-width: 19px; height: 19px; border-radius: 50%; color: #fff; background: #326b49; font-size: 9px; font-weight: 700; }
-.connect-inbox-thread { display: flex; flex-direction: column; min-width: 0; }
-.connect-inbox-thread-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 19px; border-bottom: 1px solid #edf0ed; }
-.connect-inbox-thread-heading .connect-kicker { margin-bottom: 4px; }
-.connect-inbox-thread-heading h3 { margin: 0 0 4px; color: #304137; font-size: 14px; }
-.connect-inbox-thread-heading > div > span { color: #879289; font-size: 9px; }
-.connect-inbox-messages { display: flex; flex: 1; flex-direction: column; gap: 10px; min-height: 245px; max-height: 400px; overflow-y: auto; padding: 15px 18px; background: #fafcfb; }
-.connect-inbox-message { max-width: min(86%, 520px); padding: 10px 12px; border: 1px solid #e7ece7; border-radius: 10px 10px 10px 3px; background: #fff; }
-.connect-inbox-message.staff { align-self: flex-end; border-color: #d7e8db; border-radius: 10px 10px 3px 10px; background: #edf5ef; }
-.connect-inbox-message > small { color: #89958d; font-size: 8px; }
-.connect-inbox-message > p { margin: 5px 0 0; color: #46564a; font-size: 10px; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
-.connect-inbox-reply { display: grid; gap: 7px; padding: 12px 16px; border-top: 1px solid #edf0ed; }
-.connect-inbox-reply > label { color: #536157; font-size: 9px; font-weight: 700; }
-.connect-inbox-reply textarea { width: 100%; min-height: 67px; padding: 9px 10px; resize: vertical; border: 1px solid #e4e9e4; border-radius: 6px; outline: 0; color: #45554a; background: #fff; font: inherit; font-size: 10px; line-height: 1.55; }
-.connect-inbox-reply textarea:focus { border-color: #75a386; box-shadow: 0 0 0 2px rgba(61,131,84,.08); }
+.connect-inbox-copy strong { overflow: hidden; color: #2e4035; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 700; }
+.connect-inbox-copy small { overflow: hidden; color: #78867d; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.connect-inbox-copy .connect-inbox-role { color: #477252; font-weight: 700; }
+.connect-inbox-copy .connect-inbox-preview { color: #68776d; font-size: 11px; }
+.connect-inbox-copy .connect-inbox-time { color: #9aa49c; font-size: 9px; }
+.connect-inbox-unread { display: grid; flex: 0 0 auto; place-items: center; min-width: 22px; height: 22px; border-radius: 8px; color: #fff; background: linear-gradient(145deg, #24704d, #0e493b); box-shadow: 0 3px 8px rgba(14,73,59,.18); font-size: 10px; font-weight: 800; }
+.connect-inbox-thread { display: flex; flex-direction: column; min-width: 0; background: #fff; }
+.connect-inbox-thread-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 22px; border-bottom: 1px solid #dfe9e1; background: linear-gradient(110deg, #edf6ef 0%, #fbf8ee 100%); }
+.connect-inbox-thread-heading .connect-kicker { margin-bottom: 5px; color: #a77a3f; }
+.connect-inbox-thread-heading h3 { margin: 0 0 5px; color: #263b30; font-size: 18px; letter-spacing: -.3px; }
+.connect-inbox-thread-heading > div > span { color: #718076; font-size: 11px; }
+.connect-inbox-messages { display: flex; flex: 1; flex-direction: column; gap: 13px; min-height: 270px; max-height: 460px; overflow-y: auto; padding: 22px; background: radial-gradient(ellipse at 10% 0%, rgba(231,241,233,.55), transparent 42%), #f7faf8; }
+.connect-inbox-message { max-width: min(84%, 580px); padding: 12px 15px; border: 1px solid #dce8df; border-left: 3px solid #82a88d; border-radius: 4px 14px 14px 14px; background: #fff; box-shadow: 0 4px 13px rgba(33,63,43,.045); }
+.connect-inbox-message.staff { align-self: flex-end; border: 1px solid #0e493b; border-right: 3px solid #d5b779; border-radius: 14px 4px 14px 14px; background: linear-gradient(140deg, #17634b, #0b3f34); box-shadow: 0 6px 16px rgba(14,73,59,.15); }
+.connect-inbox-message > small { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; color: #668070; font-size: 10px; font-weight: 700; }
+.connect-inbox-message.staff > small { color: #d5e7db; }
+.connect-inbox-message > p { margin: 7px 0 0; color: #34493c; font-size: 14px; line-height: 1.7; white-space: pre-line; overflow-wrap: anywhere; }
+.connect-inbox-message.staff > p { color: #fff; }
+.connect-inbox-reply { display: grid; gap: 9px; padding: 16px 20px 18px; border-top: 1px solid #e3ebe4; background: linear-gradient(180deg, #fff, #f8fbf8); }
+.connect-inbox-reply > label { color: #344b3b; font-size: 12px; font-weight: 700; }
+.connect-inbox-reply textarea { width: 100%; min-height: 86px; padding: 12px 14px; resize: vertical; border: 1px solid #dce6dd; border-radius: 9px; outline: 0; color: #34493c; background: #fff; font: inherit; font-size: 14px; line-height: 1.6; }
+.connect-inbox-reply textarea:focus { border-color: #629579; box-shadow: 0 0 0 3px rgba(61,131,84,.1); }
 .connect-inbox-reply > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.connect-inbox-reply > div > small { color: #99a29b; font-size: 8px; }
+.connect-inbox-reply > div > small { color: #7d8b81; font-size: 10px; }
+.connect-inbox-reply .connect-button { min-height: 40px; padding: 0 14px; border-radius: 8px; font-size: 11px; }
 .connect-inbox-error { margin: 10px 14px 0; }
 
 @media (max-width: 720px) {
   .connect-inbox-panel { grid-template-columns: 1fr; }
-  .connect-inbox-list { max-height: 255px; overflow-y: auto; border-right: 0; border-bottom: 1px solid #edf0ed; }
-  .connect-inbox-messages { min-height: 210px; max-height: 320px; }
-  .connect-inbox-thread-heading { align-items: flex-start; padding: 13px; }
-  .connect-inbox-messages { padding: 12px; }
-  .connect-inbox-reply { padding: 11px; }
+  .connect-inbox-list { max-height: 290px; overflow-y: auto; border-right: 0; border-bottom: 1px solid #e4ebe4; }
+  .connect-inbox-messages { min-height: 230px; max-height: 360px; padding: 14px; }
+  .connect-inbox-thread-heading { align-items: flex-start; padding: 16px; }
+  .connect-inbox-reply { padding: 13px; }
+  .connect-inbox-message { max-width: 94%; }
   .connect-opportunity-toolbar-actions { width: 100%; flex-wrap: wrap; }
   .connect-opportunity-toolbar-actions .connect-search { flex: 1 1 100%; }
   .connect-opportunity-toolbar-actions > select { flex: 1; }
