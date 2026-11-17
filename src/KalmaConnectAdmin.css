@@ -129,9 +129,65 @@
 .connect-opportunity-fields textarea { resize: vertical; line-height: 1.55; }
 .connect-opportunity-fields input:focus, .connect-opportunity-fields textarea:focus, .connect-opportunity-fields select:focus { border-color: #75a386; box-shadow: 0 0 0 2px rgba(61,131,84,.08); }
 .connect-opportunities > .connect-records { border-top: 1px solid #edf0ed; }
+.connect-opportunity-capacity { display: grid; gap: 5px; max-width: 440px; margin-top: 3px; }
+.connect-opportunity-capacity > div { display: flex; justify-content: space-between; gap: 8px; color: #78847b; font-size: 8px; }
+.connect-opportunity-capacity > div strong { color: #647269; font-size: 8px; }
+.connect-opportunity-capacity progress { width: 100%; height: 6px; overflow: hidden; border: 0; border-radius: 8px; accent-color: #34724f; }
+.connect-opportunity-capacity progress::-webkit-progress-bar { border-radius: 8px; background: #e8eee8; }
+.connect-opportunity-capacity progress::-webkit-progress-value { border-radius: 8px; background: #4d8761; }
+.connect-opportunity-capacity progress::-moz-progress-bar { border-radius: 8px; background: #4d8761; }
+.connect-opportunity-toolbar-actions { display: flex; align-items: center; gap: 7px; }
+.connect-opportunity-toolbar-actions > select { min-height: 32px; padding: 6px 9px; border: 1px solid #e4e9e4; border-radius: 5px; color: #45554a; background: #fff; font-size: 9px; }
 
 @media (max-width: 720px) {
   .connect-opportunity-fields { grid-template-columns: 1fr; }
   .connect-opportunity-fields > label.wide { grid-column: auto; }
   .connect-opportunity-form { margin: 11px; padding: 13px; }
+}
+
+.connect-tabs button { position: relative; }
+.connect-tab-unread { width: 7px; height: 7px; border-radius: 50%; background: #c7924a; }
+.connect-inbox-panel { display: grid; grid-template-columns: minmax(250px, .75fr) minmax(0, 1.45fr); min-height: 510px; overflow: hidden; border: 1px solid #e8ede8; border-radius: 8px; background: #fff; }
+.connect-inbox-list { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid #edf0ed; }
+.connect-inbox-list-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 17px 16px 12px; }
+.connect-inbox-list-heading .connect-kicker { margin-bottom: 4px; }
+.connect-inbox-list-heading h3 { margin: 0; color: #2e4035; font-size: 13px; }
+.connect-inbox-list-heading > span { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 50%; color: #477252; background: #edf4ee; font-size: 10px; font-weight: 700; }
+.connect-inbox-search { display: flex; align-items: center; gap: 7px; margin: 0 12px 9px; padding: 0 9px; border: 1px solid #e4e9e4; border-radius: 6px; color: #9aa39c; }
+.connect-inbox-search input { width: 100%; height: 34px; border: 0; outline: 0; color: #435248; background: transparent; font-size: 10px; }
+.connect-inbox-item { display: flex; align-items: flex-start; gap: 9px; width: 100%; padding: 12px; border: 0; border-top: 1px solid #eff2ef; color: inherit; background: #fff; text-align: left; }
+.connect-inbox-item:hover, .connect-inbox-item.selected { background: #f5f9f5; }
+.connect-inbox-avatar { display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #37644a; background: #eaf3ec; font-size: 12px; font-weight: 700; }
+.connect-inbox-copy { display: grid; flex: 1; min-width: 0; gap: 4px; }
+.connect-inbox-copy strong { color: #3a4a3f; font-size: 10px; }
+.connect-inbox-copy small { overflow: hidden; color: #879289; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.connect-inbox-unread { display: grid; flex: 0 0 auto; place-items: center; min-width: 19px; height: 19px; border-radius: 50%; color: #fff; background: #326b49; font-size: 9px; font-weight: 700; }
+.connect-inbox-thread { display: flex; flex-direction: column; min-width: 0; }
+.connect-inbox-thread-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 19px; border-bottom: 1px solid #edf0ed; }
+.connect-inbox-thread-heading .connect-kicker { margin-bottom: 4px; }
+.connect-inbox-thread-heading h3 { margin: 0 0 4px; color: #304137; font-size: 14px; }
+.connect-inbox-thread-heading > div > span { color: #879289; font-size: 9px; }
+.connect-inbox-messages { display: flex; flex: 1; flex-direction: column; gap: 10px; min-height: 245px; max-height: 400px; overflow-y: auto; padding: 15px 18px; background: #fafcfb; }
+.connect-inbox-message { max-width: min(86%, 520px); padding: 10px 12px; border: 1px solid #e7ece7; border-radius: 10px 10px 10px 3px; background: #fff; }
+.connect-inbox-message.staff { align-self: flex-end; border-color: #d7e8db; border-radius: 10px 10px 3px 10px; background: #edf5ef; }
+.connect-inbox-message > small { color: #89958d; font-size: 8px; }
+.connect-inbox-message > p { margin: 5px 0 0; color: #46564a; font-size: 10px; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.connect-inbox-reply { display: grid; gap: 7px; padding: 12px 16px; border-top: 1px solid #edf0ed; }
+.connect-inbox-reply > label { color: #536157; font-size: 9px; font-weight: 700; }
+.connect-inbox-reply textarea { width: 100%; min-height: 67px; padding: 9px 10px; resize: vertical; border: 1px solid #e4e9e4; border-radius: 6px; outline: 0; color: #45554a; background: #fff; font: inherit; font-size: 10px; line-height: 1.55; }
+.connect-inbox-reply textarea:focus { border-color: #75a386; box-shadow: 0 0 0 2px rgba(61,131,84,.08); }
+.connect-inbox-reply > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.connect-inbox-reply > div > small { color: #99a29b; font-size: 8px; }
+.connect-inbox-error { margin: 10px 14px 0; }
+
+@media (max-width: 720px) {
+  .connect-inbox-panel { grid-template-columns: 1fr; }
+  .connect-inbox-list { max-height: 255px; overflow-y: auto; border-right: 0; border-bottom: 1px solid #edf0ed; }
+  .connect-inbox-messages { min-height: 210px; max-height: 320px; }
+  .connect-inbox-thread-heading { align-items: flex-start; padding: 13px; }
+  .connect-inbox-messages { padding: 12px; }
+  .connect-inbox-reply { padding: 11px; }
+  .connect-opportunity-toolbar-actions { width: 100%; flex-wrap: wrap; }
+  .connect-opportunity-toolbar-actions .connect-search { flex: 1 1 100%; }
+  .connect-opportunity-toolbar-actions > select { flex: 1; }
 }

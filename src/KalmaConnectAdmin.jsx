@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Activity, BarChart3, BriefcaseBusiness, Check, Clock3, Plus, RefreshCw, Search, ShieldCheck, Users, WalletCards, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Activity, BarChart3, BriefcaseBusiness, Check, Clock3, MessageSquareText, Plus, RefreshCw, Search, ShieldCheck, Users, WalletCards, X } from 'lucide-react';
 import './KalmaConnectAdmin.css';
 
 const API_BASE = import.meta.env.DEV
@@ -8,6 +8,7 @@ const API_BASE = import.meta.env.DEV
 const tabs = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'applications', label: 'Applications', icon: Users },
+  { id: 'inbox', label: 'Recruitment inbox', icon: MessageSquareText },
   { id: 'opportunities', label: 'Opportunities', icon: BriefcaseBusiness },
   { id: 'partners', label: 'Partners', icon: ShieldCheck },
   { id: 'commissions', label: 'Earnings', icon: Clock3 },
@@ -69,6 +70,9 @@ export default function KalmaConnectAdmin() {
   const [decision, setDecision] = useState(null);
   const [search, setSearch] = useState('');
   const [reloadToken, setReloadToken] = useState(0);
+  const [selectedConversationId, setSelectedConversationId] = useState('');
+  const [unreadInboxCount, setUnreadInboxCount] = useState(0);
+  const refreshConnectData = useCallback(() => setReloadToken((current) => current + 1), []);
 
   useEffect(() => {
     let active = true;
@@ -82,6 +86,13 @@ export default function KalmaConnectAdmin() {
           if (active) {
             setPolicy(result.policy);
             setRows([]);
+          }
+        } else if (activeTab === 'inbox') {
+          const result = await api('inbox');
+          if (active) {
+            const conversations = result.conversations || [];
+            setRows(conversations);
+            setUnreadInboxCount(conversations.reduce((total, conversation) => total + conversation.unreadCount, 0));
           }
         } else {
           const query = statusFilter === 'all' ? '' : `?status=${encodeURIComponent(statusFilter)}`;
@@ -212,7 +223,7 @@ export default function KalmaConnectAdmin() {
       <div className="connect-tabs" role="tablist" aria-label="Connect management">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? 'selected' : ''} key={id} onClick={() => { setLoading(true); setPolicy(null); setActiveTab(id); setStatusFilter('all'); setSearch(''); setError(''); setNotice(''); }}>
-            <Icon size={15} /><span>{label}</span>
+            <Icon size={15} /><span>{label}</span>{id === 'inbox' && unreadInboxCount > 0 && <i className="connect-tab-unread" />}
           </button>
         ))}
       </div>
@@ -226,6 +237,8 @@ export default function KalmaConnectAdmin() {
           ? <PolicyPanel policy={policy} loading={loading} busy={busy} onSubmit={savePolicy} />
           : activeTab === 'opportunities'
             ? <OpportunityPanel opportunities={rows} loading={loading} busy={busy} onSave={saveOpportunity} />
+            : activeTab === 'inbox'
+              ? <InboxPanel conversations={rows} loading={loading} busy={busy} initialApplicationId={selectedConversationId} onRefresh={refreshConnectData} />
         : <section className="connect-panel">
           <div className="connect-panel-toolbar">
             <div><h3>{tabs.find((tab) => tab.id === activeTab)?.label}</h3><span>{loading ? 'Loading…' : `${visibleRows.length} records`}</span></div>
@@ -244,7 +257,7 @@ export default function KalmaConnectAdmin() {
             </div>}
           </div>
           {loading ? <div className="connect-loading">Loading Connect records…</div>
-            : visibleRows.length ? <div className="connect-records">{visibleRows.map((row) => renderRecord(activeTab, row, { setDecision, updatePartner, busy }))}</div>
+            : visibleRows.length ? <div className="connect-records">{visibleRows.map((row) => renderRecord(activeTab, row, { setDecision, updatePartner, busy, openInbox: (applicationId) => { setSelectedConversationId(applicationId); setActiveTab('inbox'); } }))}</div>
               : <div className="connect-empty"><span>✦</span><strong>No records found</strong><p>There are no matching records for this filter.</p></div>}
         </section>}
 
@@ -255,7 +268,7 @@ export default function KalmaConnectAdmin() {
 
 function renderRecord(tab, row, actions) {
   if (tab === 'audit') return <AuditRecord key={row._id} row={row} />;
-  if (tab === 'applications') return <ApplicationRecord key={row._id} row={row} openDecision={actions.setDecision} busy={actions.busy} />;
+  if (tab === 'applications') return <ApplicationRecord key={row._id} row={row} openDecision={actions.setDecision} openInbox={actions.openInbox} busy={actions.busy} />;
   if (tab === 'partners') return <PartnerRecord key={row._id} row={row} updatePartner={actions.updatePartner} busy={actions.busy} />;
   if (tab === 'commissions') return <CommissionRecord key={row._id} row={row} openDecision={actions.setDecision} />;
   return <PayoutRecord key={row._id} row={row} openDecision={actions.setDecision} />;
@@ -264,7 +277,9 @@ function renderRecord(tab, row, actions) {
 function OverviewPanel({ summary, loading }) {
   if (loading || !summary) return <div className="connect-panel connect-loading">Loading Kalma Connect overview…</div>;
   const cards = [
-    ['Applicants & applications', summary.totalApplications, `${summary.pendingApplications} awaiting review`, '✦'],
+    ['Applicants & applications', summary.totalApplications, `${summary.pendingApplications} active applications`, '✦'],
+    ['Open opportunities', summary.openOpportunities, 'Published and accepting activity', '◎'],
+    ['Unread applicant messages', summary.unreadApplicantMessages, 'Waiting in the recruitment inbox', '✉'],
     ['Approved associates', summary.approvedAssociates, 'Active assigned roles', '◎'],
     ['Active partners', summary.activePartners, `${summary.totalReferrals} total referrals`, '↗'],
     ['Pending commissions', currency(summary.pendingCommissionNaira), `${currency(summary.approvedCommissionNaira)} approved`, '₦'],
@@ -288,7 +303,7 @@ function AuditRecord({ row }) {
   </article>;
 }
 
-function ApplicationRecord({ row, openDecision, busy }) {
+function ApplicationRecord({ row, openDecision, openInbox, busy }) {
   return (
     <article className="connect-record">
       <div className="connect-record-main">
@@ -310,6 +325,7 @@ function ApplicationRecord({ row, openDecision, busy }) {
         </div>
       </div>
       <div className="connect-record-actions">
+        <button type="button" className="connect-button light" disabled={busy} onClick={() => openInbox(row._id)}>Open conversation</button>
         {row.active && <>
           <button type="button" className="connect-button light" disabled={busy} onClick={() => openDecision({ record: row, status: 'in_review' })}>Review</button>
           <button type="button" className="connect-button" disabled={busy} onClick={() => openDecision({ record: row, status: 'approved' })}>Approve</button>
@@ -321,9 +337,97 @@ function ApplicationRecord({ row, openDecision, busy }) {
   );
 }
 
+function InboxPanel({ conversations, loading, busy, initialApplicationId, onRefresh }) {
+  const [selectedId, setSelectedId] = useState(initialApplicationId ? String(initialApplicationId) : '');
+  const [messages, setMessages] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [threadLoading, setThreadLoading] = useState(Boolean(initialApplicationId));
+  const [sending, setSending] = useState(false);
+  const [search, setSearch] = useState('');
+  const [threadError, setThreadError] = useState('');
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [nextMessageCursor, setNextMessageCursor] = useState('');
+  const [loadingOlder, setLoadingOlder] = useState(false);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    let active = true;
+    api(`applications/${selectedId}/messages`)
+      .then((result) => { if (active) { setMessages(result.messages || []); setHasOlderMessages(Boolean(result.hasMore)); setNextMessageCursor(result.nextBefore || ''); onRefresh(); } })
+      .catch((reason) => { if (active) setThreadError(reason.message); })
+      .finally(() => { if (active) setThreadLoading(false); });
+    return () => { active = false; };
+  }, [selectedId, onRefresh]);
+
+  const send = async (event) => {
+    event.preventDefault();
+    if (!selectedId || !draft.trim() || sending || busy) return;
+    setSending(true);
+    setThreadError('');
+    try {
+      const result = await api(`applications/${selectedId}/messages`, { method: 'POST', body: { body: draft } });
+      setMessages((current) => [...current, result.message]);
+      setDraft('');
+      onRefresh();
+    } catch (reason) {
+      setThreadError(reason.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const loadOlder = async () => {
+    if (!selectedId || !nextMessageCursor || loadingOlder) return;
+    setLoadingOlder(true);
+    setThreadError('');
+    try {
+      const result = await api(`applications/${selectedId}/messages?before=${encodeURIComponent(nextMessageCursor)}`);
+      setMessages((current) => [...(result.messages || []), ...current]);
+      setHasOlderMessages(Boolean(result.hasMore));
+      setNextMessageCursor(result.nextBefore || '');
+    } catch (reason) {
+      setThreadError(reason.message);
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
+
+  const visibleConversations = conversations.filter((conversation) => {
+    const text = `${conversation.applicant?.name || ''} ${conversation.applicant?.email || ''} ${conversation.opportunityTitle || ''}`.toLowerCase();
+    return text.includes(search.trim().toLowerCase());
+  });
+  const selected = conversations.find((conversation) => String(conversation.applicationId) === String(selectedId));
+
+  return <section className="connect-inbox-panel">
+    <aside className="connect-inbox-list">
+      <div className="connect-inbox-list-heading"><div><p className="connect-kicker">PRIVATE APPLICANT THREADS</p><h3>Recruitment inbox</h3></div><span>{conversations.length}</span></div>
+      <label className="connect-inbox-search"><Search size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search applicants or roles" /></label>
+      {loading ? <div className="connect-loading">Loading conversations…</div>
+        : visibleConversations.length ? visibleConversations.map((conversation) => <button type="button" className={String(conversation.applicationId) === String(selectedId) ? 'connect-inbox-item selected' : 'connect-inbox-item'} key={conversation.applicationId} onClick={() => { setThreadError(''); setThreadLoading(true); setSelectedId(String(conversation.applicationId)) }}>
+          <span className="connect-inbox-avatar">{conversation.applicant?.name?.[0]?.toUpperCase() || 'A'}</span><span className="connect-inbox-copy"><strong>{conversation.applicant?.name || 'Applicant'}</strong><small>{conversation.opportunityTitle}</small><small>{conversation.latestMessage?.body || 'No messages yet'}</small></span>{conversation.unreadCount > 0 && <span className="connect-inbox-unread">{conversation.unreadCount}</span>}
+        </button>)
+          : <div className="connect-empty"><strong>No conversations found</strong><p>Application conversations will appear here.</p></div>}
+    </aside>
+    <section className="connect-inbox-thread">
+      {selected ? <>
+        <header className="connect-inbox-thread-heading"><div><p className="connect-kicker">APPLICATION · {selected.applicationStatus.replaceAll('_', ' ').toUpperCase()}</p><h3>{selected.applicant?.name || 'Applicant'}</h3><span>{selected.applicant?.email || '—'} · {selected.opportunityTitle}</span></div><Status status={selected.applicationStatus} /></header>
+        {threadError && <div className="connect-alert error connect-inbox-error" role="alert">{threadError}</div>}
+        <div className="connect-inbox-messages" aria-live="polite">
+          {threadLoading ? <div className="connect-loading">Loading thread…</div>
+            : <>{hasOlderMessages && <button type="button" className="connect-load-older" onClick={loadOlder} disabled={loadingOlder}>{loadingOlder ? 'Loading earlier messages…' : 'Load earlier messages'}</button>}{messages.length ? messages.map((message) => <article className={`connect-inbox-message ${message.senderRole}`} key={message.id}><small>{message.senderRole === 'staff' ? 'Kalma Connect team' : message.senderRole === 'applicant' ? 'Applicant' : 'System'} · {formatDate(message.createdAt)}</small><p>{message.body}</p></article>)
+              : <div className="connect-empty"><strong>Start a helpful conversation</strong><p>Send a clear, actionable update related to this application.</p></div>}</>}
+        </div>
+        <form className="connect-inbox-reply" onSubmit={send}><label htmlFor="connect-inbox-message">Message applicant</label><textarea id="connect-inbox-message" rows="3" maxLength="2000" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Share an update, request a document, or explain the next step…" /><div><small>{draft.length}/2000 characters</small><button type="submit" className="connect-button" disabled={sending || busy || !draft.trim()}>{sending ? 'Sending…' : 'Send message'} <MessageSquareText size={14} /></button></div></form>
+      </> : <div className="connect-empty"><strong>Select an applicant thread</strong><p>Messages stay private to the assigned applicant and authorized Connect staff.</p></div>}
+    </section>
+  </section>;
+}
+
 function OpportunityPanel({ opportunities, loading, busy, onSave }) {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const emptyOpportunity = {
     title: '',
     summary: '',
@@ -371,10 +475,15 @@ function OpportunityPanel({ opportunities, loading, busy, onSave }) {
     event.preventDefault();
     if (await onSave({ ...form, deadline: form.deadline || null }, editing)) setShowForm(false);
   };
+  const visibleOpportunities = opportunities.filter((opportunity) => {
+    const matchesStatus = statusFilter === 'all' || opportunity.status === statusFilter;
+    const matchesSearch = `${opportunity.title} ${opportunity.summary}`.toLowerCase().includes(search.trim().toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
   return <section className="connect-panel connect-opportunities">
     <div className="connect-panel-toolbar">
-      <div><h3>Opportunity feed</h3><span>{loading ? 'Loading…' : `${opportunities.length} published and draft posts`}</span></div>
-      <button type="button" className="connect-button" onClick={openNew}><Plus size={15} /> Create opportunity</button>
+      <div><h3>Opportunity feed</h3><span>{loading ? 'Loading…' : `${visibleOpportunities.length} of ${opportunities.length} posts`}</span></div>
+      <div className="connect-opportunity-toolbar-actions"><label className="connect-search"><Search size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search opportunities" /></label><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter opportunities by status"><option value="all">All statuses</option><option value="draft">Drafts</option><option value="open">Open</option><option value="closed">Closed</option></select><button type="button" className="connect-button" onClick={openNew}><Plus size={15} /> Create opportunity</button></div>
     </div>
     {showForm && <form className="connect-opportunity-form" onSubmit={submit}>
       <div className="connect-opportunity-form-heading"><div><p className="connect-kicker">STAFF PUBLISHED CONTENT</p><h4>{editing ? 'Edit opportunity' : 'Create opportunity'}</h4></div><button type="button" aria-label="Close opportunity form" onClick={() => setShowForm(false)}><X size={16} /></button></div>
@@ -395,16 +504,17 @@ function OpportunityPanel({ opportunities, loading, busy, onSave }) {
       <div className="connect-modal-actions"><button type="button" className="connect-button light" onClick={() => setShowForm(false)}>Cancel</button><button type="submit" className="connect-button" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Save post'} <Check size={15} /></button></div>
     </form>}
     {loading ? <div className="connect-loading">Loading opportunities…</div>
-      : opportunities.length ? <div className="connect-records">{opportunities.map((opportunity) => <article className="connect-record" key={opportunity.id}>
+      : visibleOpportunities.length ? <div className="connect-records">{visibleOpportunities.map((opportunity) => <article className="connect-record" key={opportunity.id}>
         <div className="connect-record-main"><span className="connect-record-icon"><BriefcaseBusiness size={15} /></span><div className="connect-record-content">
           <div className="connect-record-title"><strong>{opportunity.title}</strong><Status status={opportunity.status} /><span className="connect-status">{opportunity.type}</span></div>
           <span>{opportunity.summary}</span>
-          <p>{opportunity.type === 'announcement' ? 'Announcement' : `${opportunity.applicationCount} / ${opportunity.maximumApplications} applications · ${opportunity.positionsAvailable} positions`} · {opportunity.interestedCount} interested</p>
+          <p>{opportunity.type === 'announcement' ? 'Announcement' : `${opportunity.applicationCount} / ${opportunity.maximumApplications} applications · ${opportunity.positionsAvailable} positions`} · {opportunity.interestedCount} following · {opportunity.reactionCount || 0} reactions</p>
+          {opportunity.type !== 'announcement' && <div className="connect-opportunity-capacity"><div><strong>Application capacity</strong><span>{Math.round((opportunity.applicationCount / Math.max(opportunity.maximumApplications, 1)) * 100)}%</span></div><progress value={opportunity.applicationCount} max={Math.max(opportunity.maximumApplications, 1)} aria-label={`${opportunity.applicationCount} of ${opportunity.maximumApplications} applications received`} /></div>}
           {opportunity.deadline && <p className="connect-note">Deadline: {formatDate(opportunity.deadline)}</p>}
         </div></div>
         <div className="connect-record-actions"><button type="button" className="connect-button light" disabled={busy} onClick={() => edit(opportunity)}>Edit / manage</button></div>
       </article>)}</div>
-      : <div className="connect-empty"><span>✦</span><strong>No opportunities created</strong><p>Publish a role, partner program or announcement to the Connect feed.</p></div>}
+      : <div className="connect-empty"><span>✦</span><strong>{search || statusFilter !== 'all' ? 'No matching opportunities' : 'No opportunities created'}</strong><p>{search || statusFilter !== 'all' ? 'Try another search or status filter.' : 'Publish a role, partner program or announcement to the Connect feed.'}</p></div>}
   </section>;
 }
 

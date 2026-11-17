@@ -1,6 +1,6 @@
 # Kalma Capital Admin
 
-The admin app is a separate React/Vite deployment. It uses the shared backend session cookie and requires an `admin` or `super_admin` account; client-side role data is not used as authorization.
+The admin app is a separate React/Vite deployment. It uses the shared backend session cookie and requires a `staff`, `admin`, or `super_admin` account; client-side role data is not used as authorization.
 
 ## Local development
 
@@ -22,6 +22,7 @@ The backend bootstraps the configured admin account when it starts. Rotate crede
 
 ## Operational behavior
 
+- Kalma Connect includes a recruitment inbox beside its application review and opportunity publishing workflows. Staff can open an applicant's private application thread, send a status update or request, review unread applicant messages, and inspect opportunity interest, reactions, and application-capacity progress. Conversations are scoped to the related application and staff actions are recorded in the Connect audit log.
 - Users, wallets, transactions, support, and verification requests are loaded from authenticated backend endpoints. Select a user's name to open a read-only profile with their account details, wallet, recent transactions, verification history, support summaries, investment plans, and savings goals.
 - Wallets and transactions are read-only in this UI.
 - KYC decisions require staff to confirm that evidence was checked through the approved verification process, include a reviewer note, and are saved with an audit event. Identity evidence is not stored in this app.

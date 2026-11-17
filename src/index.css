@@ -45,3 +45,12 @@ h4,
 p {
   margin-top: 0;
 }
+
+@media (max-width: 900px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  select,
+  textarea {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+}
