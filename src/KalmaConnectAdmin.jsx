@@ -240,7 +240,11 @@ export default function KalmaConnectAdmin() {
     setNotice('');
     try {
       await api(`id-cards/${record.id}`, { method: 'PATCH', body: { status, reviewNote } });
-      setNotice(status === 'approved' ? 'Associate ID card approved and issued.' : `ID card request marked ${status.replaceAll('_', ' ')}.`);
+      setNotice(status === 'approved'
+        ? 'Associate ID card approved and issued.'
+        : status === 'revoked'
+          ? 'ID card unissued. Its QR verification now reports it as unissued.'
+          : `ID card request marked ${status.replaceAll('_', ' ')}.`);
       setLoading(true);
       setReloadToken((current) => current + 1);
     } catch (reason) {
@@ -305,6 +309,8 @@ export default function KalmaConnectAdmin() {
                 <option value="all">All statuses</option>
                 {(activeTab === 'applications'
                   ? ['pending', 'in_review', 'interview_scheduled', 'approved', 'rejected']
+                  : activeTab === 'id-cards'
+                    ? ['pending', 'changes_requested', 'approved', 'revoked', 'rejected']
                   : activeTab === 'partners'
                     ? ['active', 'suspended']
                     : activeTab === 'commissions'
@@ -415,6 +421,12 @@ function IdCardPanel({ rows, loading, busy, onReview }) {
               <button type="button" className="connect-button light" onClick={() => onReview(request, 'changes_requested', notes[request.id] || '')} disabled={busy || !notes[request.id]?.trim()}>Request changes</button>
               <button type="button" className="connect-button danger" onClick={() => onReview(request, 'rejected', notes[request.id] || '')} disabled={busy}>Reject</button>
             </div>
+          </div>}
+          {request.status === 'approved' && <div className="connect-id-card-review connect-id-card-unissue">
+            <label htmlFor={`id-card-unissue-note-${request.id}`}>Reason for unissuing</label>
+            <textarea id={`id-card-unissue-note-${request.id}`} maxLength="500" value={notes[request.id] || ''} onChange={(event) => setNotes((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="A reason is required and will be included in the audit record…" />
+            <small>Unissuing immediately changes QR verification to “Card unissued.” The associate will also be notified.</small>
+            <div><button type="button" className="connect-button danger" onClick={() => onReview(request, 'revoked', notes[request.id] || '')} disabled={busy || !notes[request.id]?.trim()}>Unissue card</button></div>
           </div>}
         </div>
       </article>)}</div>

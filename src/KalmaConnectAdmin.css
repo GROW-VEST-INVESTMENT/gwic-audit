@@ -58,7 +58,7 @@
 .connect-status { display: inline-flex; width: fit-content; padding: 4px 7px; border-radius: 15px; color: #78837b; background: #f0f3f0; text-transform: capitalize; font-size: 8px; font-weight: 700; }
 .connect-status.pending, .connect-status.in_review, .connect-status.interview_scheduled, .connect-status.processing, .connect-status.requires_otp { color: #946c36; background: #faf2e2; }
 .connect-status.approved, .connect-status.active, .connect-status.paid { color: #32714d; background: #e8f4eb; }
-.connect-status.rejected, .connect-status.suspended, .connect-status.failed, .connect-status.reversed { color: #a04f43; background: #f9ece9; }
+.connect-status.rejected, .connect-status.revoked, .connect-status.suspended, .connect-status.failed, .connect-status.reversed { color: #a04f43; background: #f9ece9; }
 .connect-transfer-error { margin: 0; color: #a04f43 !important; font-size: 9px; line-height: 1.5; }
 .connect-loading, .connect-empty { display: grid; place-items: center; min-height: 180px; color: #89968c; font-size: 10px; }
 .connect-empty { align-content: center; gap: 7px; text-align: center; }
