@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Eye,
   EyeOff,
+  FileUser,
   LayoutDashboard,
   Lock,
   LogOut,
@@ -217,6 +218,7 @@ function App() {
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="tiers" element={<TransactionTiersPage />} />
           <Route path="support" element={<SupportPage />} />
+          <Route path="name-changes" element={<NameChangeRequestsPage />} />
           <Route path="activity" element={<ActivityPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="kalma-connect" element={<KalmaConnectAdmin />} />
@@ -376,6 +378,7 @@ function AdminLayout({ session, onLogout }) {
     { to: '/transactions', label: 'Transactions', icon: Activity },
     { to: '/tiers', label: 'Transaction tiers', icon: SlidersHorizontal },
     { to: '/support', label: 'Support', icon: Ticket },
+    { to: '/name-changes', label: 'Name corrections', icon: FileUser },
     { to: '/kalma-connect', label: 'Kalma Connect', icon: Users },
     { to: '/activity', label: 'Activity log', icon: ClipboardList },
     { to: '/settings', label: 'Settings', icon: Settings2 },
@@ -1760,6 +1763,166 @@ function SupportPage() {
                   {pendingActionId === ticket.id ? 'Saving…' : 'Save update'}
                 </button>
               </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NameChangeRequestsPage() {
+  const [requests, setRequests] = useState([]);
+  const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0 });
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('pending');
+  const [noteDrafts, setNoteDrafts] = useState({});
+  const [identityChecks, setIdentityChecks] = useState({});
+  const [pendingActionId, setPendingActionId] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetchAdminData(`operations/name-change-requests?status=${statusFilter}`)
+      .then((payload) => {
+        if (active) {
+          setRequests(payload.requests || []);
+          setStats(payload.stats || { pending: 0, approved: 0, rejected: 0 });
+          setError('');
+        }
+      })
+      .catch((fetchError) => {
+        if (active) setError(fetchError.message || 'Unable to load name-correction requests.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [statusFilter]);
+
+  const reviewRequest = async (request, decision) => {
+    const note = (noteDrafts[request.id] || '').trim();
+    if (note.length < 3) {
+      setError('Add a meaningful review note of at least 3 characters.');
+      return;
+    }
+    if (decision === 'approved' && !identityChecks[request.id]) {
+      setError('Confirm that the requested name was checked through an approved identity-verification process before approving.');
+      return;
+    }
+
+    setPendingActionId(request.id);
+    setError('');
+    setMessage('');
+    try {
+      const payload = await fetchAdminData(`operations/name-change-requests/${encodeURIComponent(request.id)}`, {
+        method: 'PATCH',
+        body: { decision, note, identityConfirmed: decision === 'approved' && identityChecks[request.id] === true },
+      });
+      setMessage(payload.message);
+      setNoteDrafts((current) => ({ ...current, [request.id]: '' }));
+      setIdentityChecks((current) => ({ ...current, [request.id]: false }));
+      setRequests((current) => (
+        statusFilter !== 'all'
+          ? current.filter((item) => item.id !== request.id)
+          : current.map((item) => (item.id === request.id ? { ...item, ...payload.request } : item))
+      ));
+      setStats((current) => ({
+        ...current,
+        pending: Math.max(0, current.pending - 1),
+        [decision]: current[decision] + 1,
+      }));
+    } catch (actionError) {
+      setError(actionError.message || 'Unable to review this name-correction request.');
+    } finally {
+      setPendingActionId('');
+    }
+  };
+
+  if (loading) return <div className="state-box">Loading name-correction requests…</div>;
+
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <div>
+          <h3>Name-correction requests</h3>
+          <p className="section-note">Approval updates the customer’s account name. Verify identity through an approved process; this app does not collect identity documents.</p>
+        </div>
+        <label className="filter-field">
+          <span>Status</span>
+          <select value={statusFilter} onChange={(event) => {
+            setLoading(true);
+            setStatusFilter(event.target.value);
+          }}>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="all">All requests</option>
+          </select>
+        </label>
+      </div>
+
+      {error ? <div className="error-banner inline-error" role="alert">{error}</div> : null}
+      {message ? <p className="success-message" role="status">{message}</p> : null}
+
+      <div className="summary-strip">
+        <div className="summary-pill"><span>Pending</span><strong>{stats.pending}</strong></div>
+        <div className="summary-pill"><span>Approved</span><strong>{stats.approved}</strong></div>
+        <div className="summary-pill"><span>Rejected</span><strong>{stats.rejected}</strong></div>
+      </div>
+
+      {requests.length === 0 ? (
+        <div className="empty-state">No name-correction requests match this status.</div>
+      ) : (
+        <div className="review-list">
+          {requests.map((request) => (
+            <article key={request.id} className="review-card">
+              <div className="review-card-heading">
+                <div>
+                  <h4>{request.user?.name || 'Unknown user'} · {request.user?.email || 'No email'}</h4>
+                  <p>Submitted {formatDate(request.createdAt)}</p>
+                </div>
+                <span className={`status-pill ${getStatusTone(request.status)}`}>{normalizeRole(request.status)}</span>
+              </div>
+              <div className="support-meta">
+                <span>Current account name: <strong>{request.currentName}</strong></span>
+                <span>Requested legal name: <strong>{request.requestedName}</strong></span>
+              </div>
+              <p className="support-message">{request.reason}</p>
+              {request.reviewNote ? <p className="section-note">Review note: {request.reviewNote}</p> : null}
+              {request.status === 'pending' ? (
+                <div className="review-form">
+                  <label className="field-wrap">
+                    <span className="field-label"><strong>Administrator review note</strong></span>
+                    <textarea
+                      value={noteDrafts[request.id] || ''}
+                      maxLength={1000}
+                      required
+                      placeholder="Record the decision and what was checked"
+                      onChange={(event) => setNoteDrafts((current) => ({ ...current, [request.id]: event.target.value }))}
+                    />
+                  </label>
+                  <label className="field-wrap">
+                    <span className="field-label">
+                      <input
+                        checked={identityChecks[request.id] || false}
+                        onChange={(event) => setIdentityChecks((current) => ({ ...current, [request.id]: event.target.checked }))}
+                        type="checkbox"
+                      />
+                      I confirmed this requested name through an approved identity-verification process.
+                    </span>
+                  </label>
+                  <div className="page-actions">
+                    <button className="primary-button" disabled={pendingActionId === request.id} onClick={() => reviewRequest(request, 'approved')} type="button">
+                      {pendingActionId === request.id ? 'Saving…' : 'Approve and update account name'}
+                    </button>
+                    <button className="secondary-button" disabled={pendingActionId === request.id} onClick={() => reviewRequest(request, 'rejected')} type="button">Reject request</button>
+                  </div>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>
